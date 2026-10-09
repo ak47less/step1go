@@ -37,4 +37,8 @@ type Bus struct {
 	Context *EngineContext
 
 	Current TimePoint
+
+	Audio *AudioBuffer
+
+	MIDI *MidiBuffer
 }

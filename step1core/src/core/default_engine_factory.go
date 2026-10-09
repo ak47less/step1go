@@ -17,6 +17,7 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 	main_ef := new(MainElementFactory)
 	loader := new(DefaultEngineLoader)
 	life_man := new(DefaultLifeManager)
+	clock := new(DefaultClock)
 
 	ele_man.SetFactory(main_ef)
 
@@ -29,6 +30,7 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 	ec.LifeManager = life_man
 	ec.Loader = loader
 	ec.Logger = logger
+	ec.Clock = clock
 
 	engine.context = ec
 
