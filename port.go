@@ -1,0 +1,63 @@
+package step1go
+
+////////////////////////////////////////////////////////////////////////////////
+
+type PortType int
+
+const (
+	PortTypeAudio PortType = 1
+	PortTypeMIDI  PortType = 2
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
+type PortName string
+
+type PortID string
+
+////////////////////////////////////////////////////////////////////////////////
+
+type PortInfo struct {
+	Name PortName
+
+	ID PortID
+
+	Input Input
+
+	Output Output
+
+	Owner Element
+
+	Type PortType
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type Port interface {
+	GetInfo(info *PortInfo) *PortInfo
+
+	GetOwnerElement() Element
+
+	Wire(w *Wire) error
+}
+
+type Reader interface {
+	Read(lc *Bus) error
+}
+
+type Writer interface {
+	Write(lc *Bus) error
+}
+
+type Input interface {
+	Port
+	Writer
+}
+
+type Output interface {
+	Port
+	Reader
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF
