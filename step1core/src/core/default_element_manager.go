@@ -169,6 +169,16 @@ func (inst *DefaultElementManager) SetFactory(factory step1core.ElementFactory) 
 	inst.factory = factory
 }
 
+// Clear 移除所有已经加载的 element(工厂设置保持不变).
+func (inst *DefaultElementManager) Clear() {
+
+	inst.mutex.Lock()
+	defer inst.mutex.Unlock()
+
+	inst.table = nil
+	inst.cache = nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // 内部方法
 

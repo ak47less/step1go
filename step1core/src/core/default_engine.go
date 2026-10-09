@@ -1,6 +1,10 @@
 package core
 
-import "github.com/ak47less/step1go/step1core"
+import (
+	"fmt"
+
+	"github.com/ak47less/step1go/step1core"
+)
 
 type innerDefaultEngine struct {
 	context *step1core.EngineContext
@@ -8,7 +12,18 @@ type innerDefaultEngine struct {
 
 // Load implements [step1core.Engine].
 func (inst *innerDefaultEngine) Load() error {
-	panic("unimplemented")
+
+	ctx := inst.context
+	if ctx == nil {
+		return fmt.Errorf("engine context is nil")
+	}
+
+	loader := ctx.Loader
+	if loader == nil {
+		return fmt.Errorf("engine loader is nil")
+	}
+
+	return loader.Load(inst)
 }
 
 // Reset implements [step1core.Engine].
