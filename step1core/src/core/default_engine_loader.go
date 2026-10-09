@@ -7,6 +7,9 @@ type DefaultEngineLoader struct {
 
 // Load implements [step1core.EngineLoader].
 func (inst *DefaultEngineLoader) Load(en step1core.Engine) error {
+
+	// 根据配置加载相应的 elements
+
 	panic("unimplemented")
 }
 
