@@ -6,7 +6,10 @@ import (
 )
 
 func main() {
-	logger := new(step1core.Logger)
+
+	logger := step1core.Log()
+	logger.SetGate(step1core.LogLevelTrace)
+
 	err := boot.Run()
 	if err != nil {
 		logger.Error("%s", err.Error())
