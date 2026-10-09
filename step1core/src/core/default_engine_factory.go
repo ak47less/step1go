@@ -18,6 +18,8 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 	loader := new(DefaultEngineLoader)
 	life_man := new(DefaultLifeManager)
 
+	ele_man.SetFactory(main_ef)
+
 	ec.Engine = engine
 	ec.Configuration = cfg
 	ec.ElementFactory = main_ef
