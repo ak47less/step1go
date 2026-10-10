@@ -36,7 +36,9 @@ type LifeAPI interface {
 }
 
 type LifeManager interface {
-	Add(l LifeAPI)
+	AddAPI(l LifeAPI)
+	AddElement(l Element)
+	AddLife(l *Life)
 
 	GetMain() LifeAPI
 
