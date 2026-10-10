@@ -71,19 +71,19 @@ const (
 type ToneName string
 
 const (
-	ToneNameC  ToneName = "C"
-	ToneNameCS ToneName = "C#"
-	ToneNameD  ToneName = "D"
-	ToneNameDS ToneName = "D#"
-	ToneNameE  ToneName = "E"
+	ToneNameC  ToneName = "C"  // 0
+	ToneNameCS ToneName = "C#" // 1
+	ToneNameD  ToneName = "D"  // 2
+	ToneNameDS ToneName = "D#" // 3
+	ToneNameE  ToneName = "E"  // 4
 
-	ToneNameF  ToneName = "F"
-	ToneNameFS ToneName = "F#"
-	ToneNameG  ToneName = "G"
-	ToneNameGS ToneName = "G#"
-	ToneNameA  ToneName = "A"
-	ToneNameAS ToneName = "A#"
-	ToneNameB  ToneName = "B"
+	ToneNameF  ToneName = "F"  // 5
+	ToneNameFS ToneName = "F#" // 6
+	ToneNameG  ToneName = "G"  // 7
+	ToneNameGS ToneName = "G#" // 8
+	ToneNameA  ToneName = "A"  // 9
+	ToneNameAS ToneName = "A#" // 10
+	ToneNameB  ToneName = "B"  // 11
 )
 
 // Tone
@@ -252,10 +252,74 @@ func (inst *ToneSet) Add(item *Tone) *ToneSet {
 	return inst
 }
 
+// Normalize : 整理集合, 使其中各个 Tone 与 base 之间的关系保持一致, 即满足 :
+//
+//	base  : 必定存在 (缺省时取第一个有效项), 并且 Base 指向自身, Offset = 0
+//	其他项: Base 指向 base, Offset = Number - base.Number, Name = Number.Name()
+//
+// 说明 :
+//   - nil 项会被丢弃; base 若不在集合中, 会被插入到最前面; 其余项保持原有顺序。
+//   - Number 保持原值 (它同时表示音级和相对 base 的音程, 例如 9th = 14),
+//     只重置由它派生的 Name / Offset / Base, 因此本方法可重复调用 (幂等)。
+//   - 接收者为 nil 时返回一个新建的空集合 (与 Timeline.Normalize 一致)。
 func (inst *ToneSet) Normalize() *ToneSet {
 
-	// todo
+	if inst == nil {
+		return new(ToneSet)
+	}
 
+	// 1. 收集有效的项 (丢弃 nil, 保持顺序)
+	items := make([]*Tone, 0, len(inst.all))
+	for _, item := range inst.all {
+		if item != nil {
+			items = append(items, item)
+		}
+	}
+
+	// 2. 确定 base : 优先使用现有的 base, 否则取第一个有效项
+	base := inst.base
+	if base == nil && len(items) > 0 {
+		base = items[0]
+	}
+
+	// base 不在集合中时, 插入到最前面
+	if base != nil {
+		found := false
+		for _, item := range items {
+			if item == base {
+				found = true
+				break
+			}
+		}
+		if !found {
+			items = append([]*Tone{base}, items...)
+		}
+	}
+
+	// 3. 空集合
+	if base == nil {
+		inst.base = nil
+		inst.all = nil
+		return inst
+	}
+
+	// 4. 修复 base 自身
+	base.Base = base
+	base.Name = base.Number.Name()
+	base.Offset = 0
+
+	// 5. 修复其余各项 : 相对 base 重新计算
+	for _, item := range items {
+		if item == base {
+			continue
+		}
+		item.Base = base
+		item.Name = item.Number.Name()
+		item.Offset = int8(int(item.Number) - int(base.Number))
+	}
+
+	inst.base = base
+	inst.all = items
 	return inst
 }
 
@@ -349,7 +413,7 @@ func (inst *ToneSetBuilder) SetPattern(pattern string) *ToneSetBuilder {
 		if ch == dot {
 			index++
 			continue
-		} else if '1' <= ch && ch <= '9' {
+		} else if '0' <= ch && ch <= '9' {
 		} else if 'a' <= ch && ch <= 'z' {
 		} else if 'A' <= ch && ch <= 'Z' {
 		} else {
