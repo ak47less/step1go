@@ -821,12 +821,58 @@ func TestToneSetBuilderSetPattern(t *testing.T) {
 		}
 	})
 
-	// 锁定当前行为: '0' 不在触发字符范围内 (源码只接受 '1'..'9'/字母),
-	// 所以文档注释里的 "0...1..2" 并不会产生注释所说的大三和弦。
+	// 文档注释中的示例 "0...1..2" : '0' 与 '1'..'9' 一样, 只是一个触发字符,
+	// 音高由它的下标决定; 该示例的下标为 0,4,7, 所以它产生一个大三和弦。
 	t.Run("doc-example-behavior", func(t *testing.T) {
 
-		// todo: 重新编写这个测试函数
+		b := new(ToneSetBuilder)
+		ts := b.SetPattern("0...1..2").Build(nil)
 
+		if len(ts.all) != 3 {
+			t.Fatalf("len(all) = %d, want 3 (a major triad)", len(ts.all))
+		}
+
+		wantNum := []ToneNumber{ToneNumberC, ToneNumberE, ToneNumberG}
+		wantName := []ToneName{ToneNameC, ToneNameE, ToneNameG}
+		wantOff := []int8{0, 4, 7}
+
+		// 第一个项就是根音, 也是 base
+		root := ts.all[0]
+		if ts.base != root {
+			t.Errorf("base = %v, want the root item", ts.base)
+		}
+		if root.Base != root || root.Offset != 0 {
+			t.Errorf("root = (Base:%v, Offset:%d), want (self, 0)", root.Base, int(root.Offset))
+		}
+
+		for i, item := range ts.all {
+			if item.Number != wantNum[i] {
+				t.Errorf("all[%d].Number = %d, want %d", i, int(item.Number), int(wantNum[i]))
+			}
+			if item.Name != wantName[i] {
+				t.Errorf("all[%d].Name = %q, want %q", i, string(item.Name), string(wantName[i]))
+			}
+			if item.Offset != wantOff[i] {
+				t.Errorf("all[%d].Offset = %d, want %d", i, int(item.Offset), int(wantOff[i]))
+			}
+			if item.Base != root {
+				t.Errorf("all[%d].Base should point to the root item", i)
+			}
+		}
+
+		// 触发器本身不含音高信息: "0...1..2" 与 "1...2..3" 应该等价
+		b2 := new(ToneSetBuilder)
+		ts2 := b2.SetPattern("1...2..3").Build(nil)
+		if len(ts2.all) != len(ts.all) {
+			t.Fatalf("len(all) = %d, want %d", len(ts2.all), len(ts.all))
+		}
+		for i := range ts.all {
+			if ts.all[i].Number != ts2.all[i].Number || ts.all[i].Offset != ts2.all[i].Offset {
+				t.Errorf("all[%d] = (Number:%d, Offset:%d), want (%d, %d)",
+					i, int(ts.all[i].Number), int(ts.all[i].Offset),
+					int(ts2.all[i].Number), int(ts2.all[i].Offset))
+			}
+		}
 	})
 
 	t.Run("accumulate-without-reset", func(t *testing.T) {
