@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<work   xmlns="http://bitwormhole.com/step1/xml/ns"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="step1work.xsd">
+
+    <!-- 这是一个 Step1-DAW 的工程文档示例  -->
+
+    <head>
+        <title>Demo Step1 Work Document</title>
+
+
+        <meta name="sample_rate" value="44100" />
+        <meta name="buffer_length" value="128" />
+        <meta name="tempo" value="3/4" />
+        <meta name="bpm" value="88" />
+
+        <meta name="primary" value="F#" />
+        <meta name="scale" value="major" />
+
+    </head>
+
+    <timeline name="root">
+        <timeline name="work" bpm="120" tempo="4/4">
+            <timeline name="part1" tempo="3/8">
+            </timeline>
+            <timeline name="part2" bpm="88" offset="0" length="12345">
+            </timeline>
+        </timeline>
+    </timeline>
+
+    <tracks>
+
+        <track name="sound" type="audio">
+
+            <slice timeline="part1">
+                <wave src="./foo.wav"> </wave>
+            </slice>
+            <slice timeline="part2" type="audio">
+                <wave src="./bar.wav"> </wave>
+            </slice>
+
+        </track>
+        <track name="drums" type="midi">
+            <slice timeline="part2">
+                <midi src=""> </midi>
+            </slice>
+        </track>
+        <track name="pad" type="midi">
+
+            <slice timeline="part1" type="midi"> </slice>
+            <slice timeline="part2"> </slice>
+
+        </track>
+        <track name="ch1" type="chord">
+            <slice timeline="part2" type="chord">
+                <progression>
+                    <chord root="C" offset="0"> C,E,G </chord>
+                    <chord root="D#" offset="100"> D#, F , A </chord>
+                    <chord root="E" offset="1000"> E,G,B,D </chord>
+                    <chord root="F#" offset="10086"> F#,A </chord>
+                    <chord root="G" offset="1000009"> G, B,D </chord>
+                </progression>
+            </slice>
+        </track>
+        <track name="m1" type="master"> </track>
+
+    </tracks>
+
+    <devices>
+
+        <device name="engine1" class="engine"> </device>
+        <device name="clock1" class="clock"> </device>
+        <device name="adda1" class="adda"> </device>
+        <device name="gain1" class="gain"> </device>
+
+        <device name="mix1" class="mixer" id="mix-1">
+            <wire port="ch1" source="gain1#output" />
+            <wire port="ch2" source="adda1#ch1" />
+        </device>
+
+    </devices>
+
+
+</work>

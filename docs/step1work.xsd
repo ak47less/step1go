@@ -101,15 +101,7 @@
         <xs:restriction base="xs:NCName"/>
     </xs:simpleType>
 
-    <!-- 工程订单号: 例如 889923 -->
-    <xs:simpleType name="OrderIDType">
-        <xs:annotation>
-            <xs:documentation>工程(订单)编号, 由纯数字组成.</xs:documentation>
-        </xs:annotation>
-        <xs:restriction base="xs:string">
-            <xs:pattern value="[0-9]+"/>
-        </xs:restriction>
-    </xs:simpleType>
+
 
     <!-- 轨道类型: 与 step1core/track.go 中的 TrackType 枚举一致 -->
     <xs:simpleType name="TrackKindType">
@@ -174,11 +166,10 @@
             <xs:element name="tracks" type="TracksType" minOccurs="0"/>
             <xs:element name="devices" type="DevicesType" minOccurs="0"/>
         </xs:sequence>
-        <xs:attribute name="orderid" type="OrderIDType" use="optional">
-            <xs:annotation>
-                <xs:documentation>工程(订单)编号, 例如 orderid="889923".</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
+
+
+
+
         <!--
             放行其它命名空间的属性, 这样 work 上可以使用
             xsi:noNamespaceSchemaLocation="step1work.xsd" (以及 xsi:schemaLocation 等).
