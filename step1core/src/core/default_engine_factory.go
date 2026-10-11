@@ -13,8 +13,8 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 	engine := new(innerDefaultEngine)
 	ec := new(step1core.EngineContext)
 	track_man := new(DefaultTrackManager)
-	ele_man := new(DefaultElementManager)
-	main_ef := new(MainElementFactory)
+	ele_man := new(DefaultDeviceManager)
+	main_ef := new(MainDeviceFactory)
 	loader := new(DefaultEngineLoader)
 	life_man := new(DefaultLifeManager)
 	clock := new(DefaultClock)
@@ -23,9 +23,9 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 
 	ec.Engine = engine
 	ec.Configuration = cfg
-	ec.ElementFactory = main_ef
-	ec.ElementManager = ele_man
-	ec.ElementRegistry = main_ef
+	ec.DeviceFactory = main_ef
+	ec.DeviceManager = ele_man
+	ec.DeviceRegistry = main_ef
 	ec.TrackManager = track_man
 	ec.LifeManager = life_man
 	ec.Loader = loader

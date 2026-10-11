@@ -10,6 +10,11 @@ type innerDefaultEngine struct {
 	context *step1core.EngineContext
 }
 
+// Route implements [step1core.Engine].
+func (inst *innerDefaultEngine) Route(bus *step1core.Bus) error {
+	panic("unimplemented")
+}
+
 // Load implements [step1core.Engine].
 func (inst *innerDefaultEngine) Load() error {
 
@@ -80,9 +85,9 @@ func (inst *innerDefaultEngine) GetContext() *step1core.EngineContext {
 	return inst.context
 }
 
-// GetElementManager implements [step1core.Engine].
-func (inst *innerDefaultEngine) GetElementManager() step1core.ElementManager {
-	return inst.context.ElementManager
+// GetDeviceManager implements [step1core.Engine].
+func (inst *innerDefaultEngine) GetDeviceManager() step1core.DeviceManager {
+	return inst.context.DeviceManager
 }
 
 // GetEngine implements [step1core.Engine].
@@ -91,7 +96,7 @@ func (inst *innerDefaultEngine) GetEngine() step1core.Engine {
 }
 
 // GetInfo implements [step1core.Engine].
-func (inst *innerDefaultEngine) GetInfo(ei *step1core.ElementInfo) *step1core.ElementInfo {
+func (inst *innerDefaultEngine) GetInfo(ei *step1core.DeviceInfo) *step1core.DeviceInfo {
 	panic("unimplemented")
 }
 

@@ -1,6 +1,7 @@
 package step1core
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -49,7 +50,7 @@ func (inst *Looper) runWithErr() error {
 	bus := new(Bus)
 
 	clock := ctx.Clock
-	elist := ctx.ElementManager.ListAll()
+	elist := ctx.DeviceManager.ListAll()
 	state := &ctx.State
 	logger := ctx.Logger
 	lp := new(Looping)
@@ -60,7 +61,7 @@ func (inst *Looper) runWithErr() error {
 	lp.logger = logger
 	lp.state = state
 	lp.context = ctx
-	lp.elementList = elist
+	lp.DeviceList = elist
 	lp.bus = bus
 	lp.clock = clock
 
@@ -98,11 +99,11 @@ func (inst *Looper) runWithErr() error {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Looping struct {
-	elementList []Element
+	DeviceList []Device
 
 	wireList []*Wire
 
-	logger *Logger
+	logger Logger
 
 	context *EngineContext
 
@@ -115,36 +116,44 @@ type Looping struct {
 
 func (inst *Looping) log(index int64) error {
 
-	logger.Trace("engine.loop[%d]", index)
+	l := inst.logger
+	l.Trace("engine.loop[%d]", index)
 
+	return nil
 }
 
 func (inst *Looping) needUpdate() bool {
 
-	redo := ctx.ConfigRedo
+	// todo :  redo := ctx.ConfigRedo
 
+	return false
 }
 
 func (inst *Looping) update() error {
 
-	if redo != nil {
-		ctx.ConfigRedo = nil
-		for _, el := range elist {
-			err = el.Configure(ctx, redo)
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// if redo != nil {
+	// 	ctx.ConfigRedo = nil
+	// 	for _, el := range elist {
+	// 		err = el.Configure(ctx, redo)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
+	return nil
 }
 
 func (inst *Looping) handleClock() error {
 
 	var err error
-	all := inst.elementList
+	all := inst.DeviceList
 	bus := inst.bus
 	cl := inst.clock
+
+	if cl == nil {
+		return fmt.Errorf("engine.clock is nil")
+	}
 
 	cl.Next(bus)
 
@@ -160,15 +169,36 @@ func (inst *Looping) handleClock() error {
 
 func (inst *Looping) handleIO() error {
 
+	var err error
 	all := inst.wireList
+	bus := inst.bus
 
-	for _, el := range all {
-		err = el.IO(bus)
-		if err != nil {
-			return err
+	for _, w := range all {
+
+		if w == nil {
+			continue
 		}
+
+		src := w.Source
+		dst := w.Destination
+
+		if src == nil || dst == nil {
+			continue
+		}
+
+		err = src.Read(bus)
+		if err != nil {
+			inst.handleError(err)
+		}
+
+		err = dst.Write(bus)
+		if err != nil {
+			inst.handleError(err)
+		}
+
 	}
 
+	return nil
 }
 
 func (inst *Looping) handleError(err error) {

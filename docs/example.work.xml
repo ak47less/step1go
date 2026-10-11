@@ -8,13 +8,18 @@
 
     <head>
         <title>Demo Step1 Work Document</title>
+
+
+        <meta p="sample-rate"> </meta>
+
+
     </head>
 
     <timeline name="root">
-        <timeline name="work">
-            <timeline name="part1">
+        <timeline name="work" bpm="120" tempo="4/4">
+            <timeline name="part1" tempo="3/8">
             </timeline>
-            <timeline name="part2">
+            <timeline name="part2" bpm="88" offset="" length="">
             </timeline>
         </timeline>
     </timeline>

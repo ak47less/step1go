@@ -8,7 +8,7 @@ func TestEngineConfigurationLS(t *testing.T) {
 	cfg := new(EngineConfiguration)
 	cfg2 := new(EngineConfiguration)
 
-	elem1 := new(ElementConfig)
+	elem1 := new(DeviceConfig)
 	wire1 := new(WireConfig)
 
 	cfg.Audio.BufferLength = 1024
@@ -19,16 +19,16 @@ func TestEngineConfigurationLS(t *testing.T) {
 	cfg.MIDI.Tempo.Upper = 3
 	cfg.MIDI.Tempo.Lower = 4
 
-	cfg.Elements = append(cfg.Elements, elem1)
+	cfg.Devices = append(cfg.Devices, elem1)
 
 	elem1.ID = "mock1"
 	elem1.Name = "Mock_1"
 	elem1.Class = "class/mock"
 	elem1.Wires = append(elem1.Wires, wire1)
 
-	wire1.Destination.Element = "a"
+	wire1.Destination.Device = "a"
 	wire1.Destination.Port = "b"
-	wire1.Source.Element = "c"
+	wire1.Source.Device = "c"
 	wire1.Source.Port = "d"
 
 	data, err := ls.EncodeJSON(cfg)

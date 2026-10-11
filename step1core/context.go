@@ -18,25 +18,29 @@ type EngineContext struct {
 
 	Clock Clock
 
+	Wires []*Wire
+
 	State EngineState
 
-	ElementFactory ElementFactory // the main element factory
+	DeviceFactory DeviceFactory // the main Device factory
 
-	ElementManager ElementManager
+	DeviceManager DeviceManager
 
-	ElementRegistry ElementRegistry
+	DeviceRegistry DeviceRegistry
 
 	LifeManager LifeManager
 
 	TrackManager TrackManager
 
-	Logger *Logger
+	Logger Logger
 }
 
 type Bus struct {
 	Context *EngineContext
 
 	Current TimePoint
+
+	Router Router
 
 	Audio *AudioBuffer
 

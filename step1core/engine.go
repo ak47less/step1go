@@ -7,9 +7,9 @@ import (
 )
 
 type Engine interface {
-	Element
+	Device
 
-	GetElementManager() ElementManager
+	GetDeviceManager() DeviceManager
 
 	GetContext() *EngineContext
 

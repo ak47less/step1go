@@ -10,12 +10,12 @@ import (
 // DefaultLifeManager 是引擎中默认的 life-cycle 管理器.
 //
 // 它负责:
-//   - 收集各个 element 与 API 注册进来的 [step1core.Life];
+//   - 收集各个 Device 与 API 注册进来的 [step1core.Life];
 //   - 通过 ListAll() 给出排重并按 Order 递增排序之后的列表;
 //   - 通过 GetMain() 给出一个"主生命周期": 它把注册进来的各个 Life 合成一个
 //     整体, 由引擎统一驱动.
 //
-// 与 [step1core.ElementManager] 不同, 这里的顺序由 Life.Order 决定,
+// 与 [step1core.DeviceManager] 不同, 这里的顺序由 Life.Order 决定,
 // 而不是注册顺序.
 type DefaultLifeManager struct {
 	_main step1core.LifeAPI
@@ -36,8 +36,8 @@ func (inst *DefaultLifeManager) AddAPI(api step1core.LifeAPI) {
 	inst.innerAdd(life)
 }
 
-// AddElement implements [step1core.LifeManager].
-func (inst *DefaultLifeManager) AddElement(el step1core.Element) {
+// AddDevice implements [step1core.LifeManager].
+func (inst *DefaultLifeManager) AddDevice(el step1core.Device) {
 
 	api, ok := el.(step1core.LifeAPI)
 	if !ok {

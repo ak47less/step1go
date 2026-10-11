@@ -30,7 +30,7 @@ type PortInfo struct {
 
 	Output Output
 
-	Owner Element
+	Owner Device
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +38,7 @@ type PortInfo struct {
 type Port interface {
 	GetInfo(info *PortInfo) *PortInfo
 
-	GetOwnerElement() Element
+	GetOwnerDevice() Device
 
 	Wire(w *Wire) error
 }

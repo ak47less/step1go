@@ -22,12 +22,12 @@ type MidiConfig struct {
 	Tempo Tempo `json:"tempo"`
 }
 
-type ElementConfig struct {
-	ID ElementID `json:"id"`
+type DeviceConfig struct {
+	ID DeviceID `json:"id"`
 
-	Name ElementName `json:"name"`
+	Name DeviceName `json:"name"`
 
-	Class ElementClass `json:"class"`
+	Class DeviceClass `json:"class"`
 
 	Wires []*WireConfig `json:"wires"`
 }
@@ -37,7 +37,7 @@ type EngineConfiguration struct {
 
 	MIDI MidiConfig `json:"midi"`
 
-	Elements []*ElementConfig `json:"elements"`
+	Devices []*DeviceConfig `json:"devices"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////

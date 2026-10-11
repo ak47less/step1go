@@ -2,96 +2,98 @@ package step1core
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type ElementID string
+type DeviceID string
 
-type ElementName string
+type DeviceName string
 
-type ElementClass string
+type DeviceClass string
 
 ////////////////////////////////////////////////////////////////////////////////
 
 const (
-	ElementClassClock       ElementClass = "step1/classes/clock"
-	ElementClassEngine      ElementClass = "step1/classes/engine"
-	ElementClassWaveMonitor ElementClass = "step1/classes/wave_monitor"
-	ElementClassLevelMeter  ElementClass = "step1/classes/level_meter"
-	ElementClassOscillator  ElementClass = "step1/classes/oscillator"
-	ElementClassGain        ElementClass = "step1/classes/gain"
+	DeviceClassClock       DeviceClass = "step1/classes/clock"
+	DeviceClassEngine      DeviceClass = "step1/classes/engine"
+	DeviceClassWaveMonitor DeviceClass = "step1/classes/wave_monitor"
+	DeviceClassLevelMeter  DeviceClass = "step1/classes/level_meter"
+	DeviceClassOscillator  DeviceClass = "step1/classes/oscillator"
+	DeviceClassGain        DeviceClass = "step1/classes/gain"
 
-	ElementClassAudioIn  ElementClass = "step1/classes/audio_in"
-	ElementClassAudioOut ElementClass = "step1/classes/audio_out"
-	ElementClassFileIn   ElementClass = "step1/classes/file_in"
-	ElementClassFileOut  ElementClass = "step1/classes/file_out"
+	DeviceClassAudioIn  DeviceClass = "step1/classes/audio_in"
+	DeviceClassAudioOut DeviceClass = "step1/classes/audio_out"
+	DeviceClassFileIn   DeviceClass = "step1/classes/file_in"
+	DeviceClassFileOut  DeviceClass = "step1/classes/file_out"
 
-	ElementClassExample ElementClass = "step1/classes/example"
+	DeviceClassExample DeviceClass = "step1/classes/example"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type ElementInfo struct {
-	Class ElementClass
+type DeviceInfo struct {
+	Class DeviceClass
 
-	ID ElementID
+	ID DeviceID
 
-	Name ElementName
+	Name DeviceName
 
 	Engine Engine
 
-	Element Element
+	Device Device
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // API
 
-type Element interface {
+type Device interface {
 	GetPorts() []Port
 
 	GetProperties() []*Property
 
-	GetInfo(ei *ElementInfo) *ElementInfo
+	GetInfo(ei *DeviceInfo) *DeviceInfo
 
 	GetEngine() Engine
 
-	// 更新 element 的时钟, 使之与 bus 的时钟同步
-	Clock(lc *Bus) error
+	// 更新 Device 的时钟, 使之与 bus 的时钟同步
+	Clock(bus *Bus) error
 
-	Route(lc *Bus) error
+	// 根据设备连接图, 计算全部的信号路由路径,并根据计算结果生成经过排序的 Wire 列表
+	Route(bus *Bus) error
 
+	// todo: change to (bus *Bus)
 	Configure(ec *EngineContext, cfg *EngineConfiguration) error
 }
 
-type ElementManager interface {
+type DeviceManager interface {
 	Count() int
 
-	GetElement(index int) Element
+	GetDevice(index int) Device
 
-	FindElement(ei *ElementInfo) (Element, error)
+	FindDevice(ei *DeviceInfo) (Device, error)
 
-	LoadElement(ei *ElementInfo) (Element, error)
+	LoadDevice(ei *DeviceInfo) (Device, error)
 
-	ListAll() []Element
+	ListAll() []Device
 }
 
-type ElementFactory interface {
-	CreateElement(ei *ElementInfo) (Element, error)
+type DeviceFactory interface {
+	CreateDevice(ei *DeviceInfo) (Device, error)
 }
 
-type ElementProvider interface {
-	GetRegistration() *ElementRegistration
+type DeviceProvider interface {
+	GetRegistration() *DeviceRegistration
 
-	GetFactory() ElementFactory
+	GetFactory() DeviceFactory
 }
 
-type ElementRegistration struct {
-	Class ElementClass
+type DeviceRegistration struct {
+	Class DeviceClass
 
-	Provider ElementProvider
+	Provider DeviceProvider
 
-	Factory ElementFactory
+	Factory DeviceFactory
 }
 
-type ElementRegistry interface {
-	Register(provider ElementProvider)
+type DeviceRegistry interface {
+	Register(provider DeviceProvider)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    step1work.xsd
+
+    Step1-DAW 工程文档 (work document) 的 XML Schema, 依据 example.work.xml 编写.
+
+    文档整体结构:
+        work
+        ├── head        (工程头: 标题等元信息)
+        ├── timeline*   (时间轴树, 可递归嵌套)
+        ├── tracks      (轨道集合, 轨道下可放 slice 片段)
+        └── devices     (设备集合, 设备之间通过 wire 连线)
+
+    设计约定:
+      1. 本 schema 没有 targetNamespace, 与 example.work.xml 中的
+         xsi:noNamespaceSchemaLocation="step1work.xsd" 对应.
+      2. 各元素的书写顺序与示例一致, 用 xs:sequence 约束顺序;
+         属性无顺序要求.
+      3. 除语义约束(见 work 元素上的 key/keyref/unique)外, 只做结构与
+         取值范围约束, 不对标题等自由文本做额外限制.
+      4. 若某个工程确实需要重名的 timeline/track/device, 可以删除
+         work 元素上的 key/keyref/unique 声明.
+
+    对应的 Go 领域模型: step1core/track.go   (TrackType),
+                      step1core/element.go (ElementClass),
+                      step1core/wire.go    (WireConfig / PortRef).
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+    <!-- ==================================================================
+         根元素 work
+         ================================================================== -->
+
+    <xs:element name="work" type="WorkType">
+
+        <!-- timeline 的名称在整篇文档中必须唯一, 供 slice/@timeline 引用 -->
+        <xs:key name="TimelineNameKey">
+            <xs:selector xpath=".//timeline"/>
+            <xs:field xpath="@name"/>
+        </xs:key>
+
+        <!-- 每个 slice 都必须指向一个已存在的 timeline -->
+        <xs:keyref name="SliceTimelineRef" refer="TimelineNameKey">
+            <xs:selector xpath=".//slice"/>
+            <xs:field xpath="@timeline"/>
+        </xs:keyref>
+
+        <!-- 轨道名称在整篇文档中必须唯一 -->
+        <xs:key name="TrackNameKey">
+            <xs:selector xpath=".//track"/>
+            <xs:field xpath="@name"/>
+        </xs:key>
+
+        <!-- 设备名称在整篇文档中必须唯一: wire/@source 以 "设备名#端口名" 形式引用设备 -->
+        <xs:key name="DeviceNameKey">
+            <xs:selector xpath=".//device"/>
+            <xs:field xpath="@name"/>
+        </xs:key>
+
+        <!-- 设备 id 若存在则必须唯一 (可以不写) -->
+        <xs:unique name="DeviceIdUnique">
+            <xs:selector xpath=".//device"/>
+            <xs:field xpath="@id"/>
+        </xs:unique>
+
+    </xs:element>
+
+    <!-- ==================================================================
+         公共简单类型
+         ================================================================== -->
+
+    <!-- 名称: timeline / track / device 的名字, 例如 root, part1, ch1, mix-1 -->
+    <xs:simpleType name="NameType">
+        <xs:annotation>
+            <xs:documentation>
+                名称类型. 基于 NCName: 不能含空格, 不能以数字、'-'、'.' 开头,
+                允许中文等 Unicode 字母.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:NCName"/>
+    </xs:simpleType>
+
+    <!-- 端口名: 例如 output, input, ch1, ch2 -->
+    <xs:simpleType name="PortNameType">
+        <xs:annotation>
+            <xs:documentation>设备端口名, 例如 output、input、ch1.</xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:NCName"/>
+    </xs:simpleType>
+
+    <!-- 设备 id: 例如 mix-1 -->
+    <xs:simpleType name="IDType">
+        <xs:annotation>
+            <xs:documentation>
+                设备标识. 取值规则与 NameType 相同, 但在文档内必须唯一.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:NCName"/>
+    </xs:simpleType>
+
+    <!-- 工程订单号: 例如 889923 -->
+    <xs:simpleType name="OrderIDType">
+        <xs:annotation>
+            <xs:documentation>工程(订单)编号, 由纯数字组成.</xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 轨道类型: 与 step1core/track.go 中的 TrackType 枚举一致 -->
+    <xs:simpleType name="TrackKindType">
+        <xs:annotation>
+            <xs:documentation>
+                轨道类型: audio (音频)、midi、chord (和弦)、master (总线).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="audio"/>
+            <xs:enumeration value="midi"/>
+            <xs:enumeration value="chord"/>
+            <xs:enumeration value="master"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 设备类型: 允许 "gain" 这样的短名, 也允许 "step1/classes/gain" 这样的类路径 -->
+    <xs:simpleType name="DeviceClassType">
+        <xs:annotation>
+            <xs:documentation>
+                设备类名. 可以是短名(如 engine、clock、adda、gain、mixer),
+                也可以是插件类路径(如 step1/classes/gain, 见 step1core/element.go).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[^\s/]+(/[^\s/]+)*"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 连线源引用: "设备名#端口名", 例如 gain1#output、adda1#ch1 -->
+    <xs:simpleType name="SourceRefType">
+        <xs:annotation>
+            <xs:documentation>
+                连线的源端口引用, 形如 "设备名#端口名"(端口名可省略, 表示引用整个设备),
+                例如 gain1#output、adda1#ch1.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[^\s#]+(#[^\s#]+)?"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ==================================================================
+         复杂类型
+         ================================================================== -->
+
+    <xs:complexType name="WorkType">
+        <xs:annotation>
+            <xs:documentation>工程文档根元素.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="head" type="HeadType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>工程头信息, 可选.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="timeline" type="TimelineType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>顶层时间轴, 通常只有一个根时间轴(如 name="root").</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="tracks" type="TracksType" minOccurs="0"/>
+            <xs:element name="devices" type="DevicesType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="orderid" type="OrderIDType" use="optional">
+            <xs:annotation>
+                <xs:documentation>工程(订单)编号, 例如 orderid="889923".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <!--
+            放行其它命名空间的属性, 这样 work 上可以使用
+            xsi:noNamespaceSchemaLocation="step1work.xsd" (以及 xsi:schemaLocation 等).
+            processContents="lax": 有声明则校验, 无声明则跳过.
+        -->
+        <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+
+    <xs:complexType name="HeadType">
+        <xs:annotation>
+            <xs:documentation>工程头信息.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="title" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>工程标题.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- 时间轴: 可以递归嵌套, 例如 root > work > part1 -->
+    <xs:complexType name="TimelineType">
+        <xs:annotation>
+            <xs:documentation>时间轴节点, 可嵌套子时间轴.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="timeline" type="TimelineType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>子时间轴.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>时间轴名称, 在文档内唯一, 供 slice/@timeline 引用.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:complexType name="TracksType">
+        <xs:annotation>
+            <xs:documentation>轨道集合.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="track" type="TrackType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TrackType">
+        <xs:annotation>
+            <xs:documentation>一条轨道. audio / midi 轨道可以包含 slice 片段.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="slice" type="SliceType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>把该轨道放置到某个时间轴上的片段.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>轨道名称, 在文档内唯一, 例如 sound、drums、ch1.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="type" type="TrackKindType" use="required">
+            <xs:annotation>
+                <xs:documentation>轨道类型.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:complexType name="SliceType">
+        <xs:annotation>
+            <xs:documentation>
+                轨道在时间轴上的片段, 通过 timeline 属性引用已定义的时间轴.
+                slice 目前没有子元素, 因此示例中写成 &lt;slice timeline="part1"&gt; &lt;/slice&gt;
+                也只允许空白字符; 这里保留一个扩展点, 以便将来放入其它命名空间的子元素.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>扩展点: 允许插入其它命名空间的子元素.</xs:documentation>
+                </xs:annotation>
+            </xs:any>
+        </xs:sequence>
+        <xs:attribute name="timeline" type="NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>目标时间轴名称, 必须与某个 timeline/@name 相同.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:complexType name="DevicesType">
+        <xs:annotation>
+            <xs:documentation>设备集合.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="device" type="DeviceType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="DeviceType">
+        <xs:annotation>
+            <xs:documentation>
+                一台设备(音频引擎、时钟、ADDA、增益、混音器等).
+                wire 子元素通常只出现在 class="mixer" 的设备上.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="wire" type="WireType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>连到本设备端口的连线.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>设备名称, 在文档内唯一, 例如 engine1、gain1、mix1.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="class" type="DeviceClassType" use="required">
+            <xs:annotation>
+                <xs:documentation>设备类名, 例如 engine、clock、adda、gain、mixer.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="id" type="IDType" use="optional">
+            <xs:annotation>
+                <xs:documentation>设备标识, 可选, 例如 id="mix-1".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <!-- 连线: 把 source 指向的源端口连到本设备的 port 端口 -->
+    <xs:complexType name="WireType">
+        <xs:annotation>
+            <xs:documentation>
+                一条连线. 数据方向: source(源) -> port(本设备上的目标端口),
+                例如 &lt;wire port="ch1" source="gain1#output"/&gt;.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:attribute name="port" type="PortNameType" use="required">
+            <xs:annotation>
+                <xs:documentation>本设备上的目标(输入)端口名.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="source" type="SourceRefType" use="required">
+            <xs:annotation>
+                <xs:documentation>源端口引用, 形如 "设备名#端口名", 例如 gain1#output.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+</xs:schema>

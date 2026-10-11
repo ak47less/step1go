@@ -7,28 +7,28 @@ import (
 	"github.com/ak47less/step1go/step1core"
 )
 
-// DefaultElementManager 是引擎中默认的 element 管理器.
+// DefaultDeviceManager 是引擎中默认的 Device 管理器.
 //
 // 它负责:
-//   - 通过 [step1core.ElementFactory] 创建 element (缓存的创建过程不重复);
-//   - 按 [step1core.ElementID] 保存已经加载的 element, 供 FindElement() 查找;
-//   - 用 cache 保存加载顺序, 供 GetElement() / ListAll() 使用.
-type DefaultElementManager struct {
+//   - 通过 [step1core.DeviceFactory] 创建 Device (缓存的创建过程不重复);
+//   - 按 [step1core.DeviceID] 保存已经加载的 Device, 供 FindDevice() 查找;
+//   - 用 cache 保存加载顺序, 供 GetDevice() / ListAll() 使用.
+type DefaultDeviceManager struct {
 	mutex sync.RWMutex
 
-	factory step1core.ElementFactory
+	factory step1core.DeviceFactory
 
-	table map[step1core.ElementID]*step1core.ElementInfo
-	cache []step1core.Element
+	table map[step1core.DeviceID]*step1core.DeviceInfo
+	cache []step1core.Device
 }
 
 // 确保实现相关接口
-var _ step1core.ElementManager = (*DefaultElementManager)(nil)
+var _ step1core.DeviceManager = (*DefaultDeviceManager)(nil)
 
-// Count implements [step1core.ElementManager].
+// Count implements [step1core.DeviceManager].
 //
-// 返回已经加载的 element 数量.
-func (inst *DefaultElementManager) Count() int {
+// 返回已经加载的 Device 数量.
+func (inst *DefaultDeviceManager) Count() int {
 
 	inst.mutex.RLock()
 	defer inst.mutex.RUnlock()
@@ -36,10 +36,10 @@ func (inst *DefaultElementManager) Count() int {
 	return len(inst.cache)
 }
 
-// GetElement implements [step1core.ElementManager].
+// GetDevice implements [step1core.DeviceManager].
 //
-// 按加载顺序返回 element, index 越界时返回 nil.
-func (inst *DefaultElementManager) GetElement(index int) step1core.Element {
+// 按加载顺序返回 Device, index 越界时返回 nil.
+func (inst *DefaultDeviceManager) GetDevice(index int) step1core.Device {
 
 	inst.mutex.RLock()
 	defer inst.mutex.RUnlock()
@@ -51,64 +51,64 @@ func (inst *DefaultElementManager) GetElement(index int) step1core.Element {
 	return inst.cache[index]
 }
 
-// ListAll implements [step1core.ElementManager].
+// ListAll implements [step1core.DeviceManager].
 //
-// 返回当前所有 element 的快照, 调用方修改返回值不会影响管理器内部状态.
-func (inst *DefaultElementManager) ListAll() []step1core.Element {
+// 返回当前所有 Device 的快照, 调用方修改返回值不会影响管理器内部状态.
+func (inst *DefaultDeviceManager) ListAll() []step1core.Device {
 
 	inst.mutex.RLock()
 	defer inst.mutex.RUnlock()
 
 	size := len(inst.cache)
-	list := make([]step1core.Element, size)
+	list := make([]step1core.Device, size)
 	copy(list, inst.cache)
 
 	return list
 }
 
-// FindElement implements [step1core.ElementManager].
+// FindDevice implements [step1core.DeviceManager].
 //
-// 按 ID 查找已经加载的 element, 找不到时返回错误.
-func (inst *DefaultElementManager) FindElement(ei *step1core.ElementInfo) (step1core.Element, error) {
+// 按 ID 查找已经加载的 Device, 找不到时返回错误.
+func (inst *DefaultDeviceManager) FindDevice(ei *step1core.DeviceInfo) (step1core.Device, error) {
 
 	if ei == nil {
-		return nil, fmt.Errorf("element info is nil")
+		return nil, fmt.Errorf("Device info is nil")
 	}
 
 	id := ei.ID
 	if id == "" {
-		return nil, fmt.Errorf("element id is empty")
+		return nil, fmt.Errorf("Device id is empty")
 	}
 
 	inst.mutex.RLock()
 	defer inst.mutex.RUnlock()
 
-	element := inst.innerFindByID(id)
-	if element == nil {
-		return nil, fmt.Errorf("element not found, id: %s", id)
+	Device := inst.innerFindByID(id)
+	if Device == nil {
+		return nil, fmt.Errorf("Device not found, id: %s", id)
 	}
 
-	return element, nil
+	return Device, nil
 }
 
-// LoadElement implements [step1core.ElementManager].
+// LoadDevice implements [step1core.DeviceManager].
 //
-// 加载(创建并缓存)一个 element:
-//   - ei.Element 已经存在时直接使用它, 不再调用 factory;
+// 加载(创建并缓存)一个 Device:
+//   - ei.Device 已经存在时直接使用它, 不再调用 factory;
 //   - 同一个 ID 重复加载时返回已经缓存的实例;
 //   - 其它情况通过 factory 创建, 成功后按 ID 缓存并追加到 cache.
-func (inst *DefaultElementManager) LoadElement(ei *step1core.ElementInfo) (step1core.Element, error) {
+func (inst *DefaultDeviceManager) LoadDevice(ei *step1core.DeviceInfo) (step1core.Device, error) {
 
 	if ei == nil {
-		return nil, fmt.Errorf("element info is nil")
+		return nil, fmt.Errorf("Device info is nil")
 	}
 
 	id := ei.ID
 	if id == "" {
-		return nil, fmt.Errorf("element id is empty")
+		return nil, fmt.Errorf("Device id is empty")
 	}
 	if ei.Class == "" {
-		return nil, fmt.Errorf("element class is empty, id: %s", id)
+		return nil, fmt.Errorf("Device class is empty, id: %s", id)
 	}
 
 	inst.mutex.Lock()
@@ -120,46 +120,46 @@ func (inst *DefaultElementManager) LoadElement(ei *step1core.ElementInfo) (step1
 		return old, nil
 	}
 
-	element := ei.Element
-	if element == nil {
-		// 创建 element
+	Device := ei.Device
+	if Device == nil {
+		// 创建 Device
 		factory := inst.factory
 		if factory == nil {
-			return nil, fmt.Errorf("element factory is nil, id: %s", id)
+			return nil, fmt.Errorf("Device factory is nil, id: %s", id)
 		}
-		created, err := factory.CreateElement(ei)
+		created, err := factory.CreateDevice(ei)
 		if err != nil {
 			return nil, err
 		}
 		if created == nil {
-			return nil, fmt.Errorf("element is nil, id: %s", id)
+			return nil, fmt.Errorf("Device is nil, id: %s", id)
 		}
-		element = created
+		Device = created
 	}
 
 	// 缓存
-	info := new(step1core.ElementInfo)
+	info := new(step1core.DeviceInfo)
 	*info = *ei
-	info.Element = element
+	info.Device = Device
 
 	if inst.table == nil {
-		inst.table = make(map[step1core.ElementID]*step1core.ElementInfo)
+		inst.table = make(map[step1core.DeviceID]*step1core.DeviceInfo)
 	}
 	inst.table[id] = info
-	inst.cache = append(inst.cache, element)
+	inst.cache = append(inst.cache, Device)
 
-	step1core.Log().Debug("element loaded, id: %s, class: %s", id, info.Class)
+	step1core.Log().Debug("Device loaded, id: %s, class: %s", id, info.Class)
 
-	return element, nil
+	return Device, nil
 }
 
-// SetFactory 设置用于创建 element 的工厂.
+// SetFactory 设置用于创建 Device 的工厂.
 //
 // 由引擎装配阶段调用; 参数为 nil 时忽略本次设置.
-func (inst *DefaultElementManager) SetFactory(factory step1core.ElementFactory) {
+func (inst *DefaultDeviceManager) SetFactory(factory step1core.DeviceFactory) {
 
 	if factory == nil {
-		step1core.Log().Error("element factory is nil, ignore")
+		step1core.Log().Error("Device factory is nil, ignore")
 		return
 	}
 
@@ -169,8 +169,8 @@ func (inst *DefaultElementManager) SetFactory(factory step1core.ElementFactory) 
 	inst.factory = factory
 }
 
-// Clear 移除所有已经加载的 element(工厂设置保持不变).
-func (inst *DefaultElementManager) Clear() {
+// Clear 移除所有已经加载的 Device(工厂设置保持不变).
+func (inst *DefaultDeviceManager) Clear() {
 
 	inst.mutex.Lock()
 	defer inst.mutex.Unlock()
@@ -182,22 +182,22 @@ func (inst *DefaultElementManager) Clear() {
 ////////////////////////////////////////////////////////////////////////////////
 // 内部方法
 
-// innerFindByID 按 ID 查找 element, 不加锁, 调用方必须自己持有锁.
-func (inst *DefaultElementManager) innerFindByID(id step1core.ElementID) step1core.Element {
+// innerFindByID 按 ID 查找 Device, 不加锁, 调用方必须自己持有锁.
+func (inst *DefaultDeviceManager) innerFindByID(id step1core.DeviceID) step1core.Device {
 
 	info := inst.table[id]
 	if info == nil {
 		return nil
 	}
 
-	return info.Element
+	return info.Device
 }
 
-// FindInfo 按 ID 查找 element 的注册信息, 找不到时返回错误.
-func (inst *DefaultElementManager) FindInfo(id step1core.ElementID) (*step1core.ElementInfo, error) {
+// FindInfo 按 ID 查找 Device 的注册信息, 找不到时返回错误.
+func (inst *DefaultDeviceManager) FindInfo(id step1core.DeviceID) (*step1core.DeviceInfo, error) {
 
 	if id == "" {
-		return nil, fmt.Errorf("element id is empty")
+		return nil, fmt.Errorf("Device id is empty")
 	}
 
 	inst.mutex.RLock()
@@ -205,12 +205,12 @@ func (inst *DefaultElementManager) FindInfo(id step1core.ElementID) (*step1core.
 
 	info := inst.table[id]
 	if info == nil {
-		return nil, fmt.Errorf("element not found, id: %s", id)
+		return nil, fmt.Errorf("Device not found, id: %s", id)
 	}
 
 	return info, nil
 }
 
-func (inst *DefaultElementManager) _impl() step1core.ElementManager {
+func (inst *DefaultDeviceManager) _impl() step1core.DeviceManager {
 	return inst
 }

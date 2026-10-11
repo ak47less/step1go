@@ -1,7 +1,7 @@
 package step1core
 
 type PortRef struct {
-	Element ElementName
+	Device DeviceName
 
 	Port PortName
 }

@@ -47,7 +47,7 @@ func (ll LogLevel) String() string {
 type LogContext struct {
 	tag string
 
-	logger *Logger
+	logger Logger
 
 	handler LogHandler
 
@@ -56,46 +56,66 @@ type LogContext struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Logger struct {
+type Logger interface {
+	SetGate(l LogLevel) Logger
+	SetTag(t string) Logger
+
+	Fatal(fmt string, args ...any) Logger
+	Error(fmt string, args ...any) Logger
+	Warn(fmt string, args ...any) Logger
+	Info(fmt string, args ...any) Logger
+	Debug(fmt string, args ...any) Logger
+	Trace(fmt string, args ...any) Logger
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type DefaultLogger struct {
 	ctx *LogContext
 }
 
-func (inst *Logger) Fatal(fmt string, args ...any) *Logger {
+// SetTag implements [Logger].
+func (inst *DefaultLogger) SetTag(t string) Logger {
+	inst.ctx.tag = t
+	return inst
+}
+
+func (inst *DefaultLogger) Fatal(fmt string, args ...any) Logger {
 	const lv = LogLevelFatal
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) Error(fmt string, args ...any) *Logger {
+func (inst *DefaultLogger) Error(fmt string, args ...any) Logger {
 	const lv = LogLevelError
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) Warn(fmt string, args ...any) *Logger {
+func (inst *DefaultLogger) Warn(fmt string, args ...any) Logger {
 	const lv = LogLevelWarn
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) Info(fmt string, args ...any) *Logger {
+func (inst *DefaultLogger) Info(fmt string, args ...any) Logger {
 	const lv = LogLevelInfo
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) Debug(fmt string, args ...any) *Logger {
+func (inst *DefaultLogger) Debug(fmt string, args ...any) Logger {
 	const lv = LogLevelDebug
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) Trace(fmt string, args ...any) *Logger {
+func (inst *DefaultLogger) Trace(fmt string, args ...any) Logger {
 	const lv = LogLevelTrace
 	return inst.innerWriteFmt(lv, fmt, args...)
 }
 
-func (inst *Logger) SetGate(l LogLevel) *Logger {
+func (inst *DefaultLogger) SetGate(l LogLevel) Logger {
 	inst.ctx.levelGate = l
 	return inst
 }
 
-func (inst *Logger) innerWriteFmt(lv LogLevel, f string, args ...any) *Logger {
+func (inst *DefaultLogger) innerWriteFmt(lv LogLevel, f string, args ...any) Logger {
 
 	rec := new(LogRecord)
 	msg := fmt.Sprintf(f, args...)
@@ -108,8 +128,12 @@ func (inst *Logger) innerWriteFmt(lv LogLevel, f string, args ...any) *Logger {
 	return inst.innerWriteRec(rec)
 }
 
-func (inst *Logger) innerWriteRec(rec *LogRecord) *Logger {
+func (inst *DefaultLogger) innerWriteRec(rec *LogRecord) Logger {
 	inst.ctx.handler.Handle(rec)
+	return inst
+}
+
+func (inst *DefaultLogger) _impl() Logger {
 	return inst
 }
 
@@ -174,7 +198,7 @@ type innerLoggerHolder struct {
 
 var theLoggerHolder innerLoggerHolder
 
-func (inst *innerLoggerHolder) GetLogger() *Logger {
+func (inst *innerLoggerHolder) GetLogger() Logger {
 	return inst.GetContext().logger
 }
 
@@ -190,7 +214,7 @@ func (inst *innerLoggerHolder) GetContext() *LogContext {
 func (inst *innerLoggerHolder) createContext() *LogContext {
 
 	ctx := new(LogContext)
-	logger := new(Logger)
+	logger := new(DefaultLogger)
 	handler := new(innerLogHandler)
 
 	logger.ctx = ctx
@@ -206,7 +230,7 @@ func (inst *innerLoggerHolder) createContext() *LogContext {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func Log() *Logger {
+func Log() Logger {
 	return theLoggerHolder.GetLogger()
 }
 
