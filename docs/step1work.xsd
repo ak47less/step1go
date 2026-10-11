@@ -2,67 +2,88 @@
 <!--
     step1work.xsd
 
-    Step1-DAW 工程文档 (work document) 的 XML Schema, 依据 example.work.xml 编写.
+    Step1-DAW 工程文档 (work document) 的 XML Schema, 依据原型文档 prototype.work.xml 编写.
 
     文档整体结构:
         work
-        ├── head        (工程头: 标题等元信息)
-        ├── timeline*   (时间轴树, 可递归嵌套)
-        ├── tracks      (轨道集合, 轨道下可放 slice 片段)
-        └── devices     (设备集合, 设备之间通过 wire 连线)
+        ├── head                (工程头: title + meta*)
+        ├── timeline*           (时间轴树, 可递归嵌套; 可带 bpm/tempo/offset/length)
+        ├── tracks              (轨道集合)
+        │   └── track*          (name + type)
+        │       └── slice*      (timeline + 可选 type)
+        │           ├── wave        (音频片段: src)
+        │           ├── midi        (MIDI 片段: src)
+        │           └── progression (和弦进行)
+        │               └── chord*  (root + 可选 offset + 音符列表文本)
+        └── devices             (设备集合)
+            └── device*         (name + class + 可选 id)
+                └── wire*       (port + source)
+
+    命名空间:
+      原型文档在 work 上声明了默认命名空间
+          xmlns="http://bitwormhole.com/step1/xml/ns"
+      因此本 schema 设置了相同的 targetNamespace, 且 elementFormDefault="qualified".
+      注意: 原型文档仍写着 xsi:noNamespaceSchemaLocation="step1work.xsd",
+      这与上面的默认命名空间相矛盾(该属性只用于没有命名空间的文档), 建议改为:
+          xsi:schemaLocation="http://bitwormhole.com/step1/xml/ns step1work.xsd"
 
     设计约定:
-      1. 本 schema 没有 targetNamespace, 与 example.work.xml 中的
-         xsi:noNamespaceSchemaLocation="step1work.xsd" 对应.
-      2. 各元素的书写顺序与示例一致, 用 xs:sequence 约束顺序;
-         属性无顺序要求.
-      3. 除语义约束(见 work 元素上的 key/keyref/unique)外, 只做结构与
-         取值范围约束, 不对标题等自由文本做额外限制.
-      4. 若某个工程确实需要重名的 timeline/track/device, 可以删除
-         work 元素上的 key/keyref/unique 声明.
-
-    对应的 Go 领域模型: step1core/track.go   (TrackType),
-                      step1core/element.go (ElementClass),
-                      step1core/wire.go    (WireConfig / PortRef).
+      1. 元素顺序与原型一致, 用 xs:sequence 约束; 属性无顺序要求.
+      2. 除结构约束外, 还包含以下语义约束(可按需删除):
+         TimelineNameKey  - timeline/@name 全文唯一
+         SliceTimelineRef - slice/@timeline 必须指向已存在的 timeline
+         TrackNameKey     - track/@name 全文唯一
+         DeviceNameKey    - device/@name 全文唯一 (wire/@source 按设备名寻址)
+         DeviceIdUnique   - device/@id 若存在则唯一
+         MetaNameKey      - 同一个 head 下的 meta/@name 唯一
+      3. 取值范围取自 step1core 的 Go 领域模型:
+         TrackKindType  <- track.go    (TrackType)
+         SliceKindType  <- track.go    (TrackType, 不含 master)
+         BPMType        <- music.go    (BPM float32, 注释给出区间 [10,500])
+         TempoType      <- music.go    (Tempo{upper,lower}, 形如 "4/4")
+         SampleTimeType <- time.go     (SampleTime int64)
+         NoteNameType   <- music.go    (ToneName, 形如 "C"、"F#"、"C4"、"D-1")
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://bitwormhole.com/step1/xml/ns"
+           targetNamespace="http://bitwormhole.com/step1/xml/ns"
            elementFormDefault="qualified"
            attributeFormDefault="unqualified"
-           version="1.0">
+           version="1.1">
 
     <!-- ==================================================================
          根元素 work
          ================================================================== -->
 
-    <xs:element name="work" type="WorkType">
+    <xs:element name="work" type="tns:WorkType">
 
         <!-- timeline 的名称在整篇文档中必须唯一, 供 slice/@timeline 引用 -->
         <xs:key name="TimelineNameKey">
-            <xs:selector xpath=".//timeline"/>
+            <xs:selector xpath=".//tns:timeline"/>
             <xs:field xpath="@name"/>
         </xs:key>
 
         <!-- 每个 slice 都必须指向一个已存在的 timeline -->
-        <xs:keyref name="SliceTimelineRef" refer="TimelineNameKey">
-            <xs:selector xpath=".//slice"/>
+        <xs:keyref name="SliceTimelineRef" refer="tns:TimelineNameKey">
+            <xs:selector xpath=".//tns:slice"/>
             <xs:field xpath="@timeline"/>
         </xs:keyref>
 
         <!-- 轨道名称在整篇文档中必须唯一 -->
         <xs:key name="TrackNameKey">
-            <xs:selector xpath=".//track"/>
+            <xs:selector xpath=".//tns:track"/>
             <xs:field xpath="@name"/>
         </xs:key>
 
         <!-- 设备名称在整篇文档中必须唯一: wire/@source 以 "设备名#端口名" 形式引用设备 -->
         <xs:key name="DeviceNameKey">
-            <xs:selector xpath=".//device"/>
+            <xs:selector xpath=".//tns:device"/>
             <xs:field xpath="@name"/>
         </xs:key>
 
         <!-- 设备 id 若存在则必须唯一 (可以不写) -->
         <xs:unique name="DeviceIdUnique">
-            <xs:selector xpath=".//device"/>
+            <xs:selector xpath=".//tns:device"/>
             <xs:field xpath="@id"/>
         </xs:unique>
 
@@ -101,7 +122,15 @@
         <xs:restriction base="xs:NCName"/>
     </xs:simpleType>
 
-
+    <!-- 工程订单号: 例如 889923 (旧版 example.work.xml 使用, 原型中未出现) -->
+    <xs:simpleType name="OrderIDType">
+        <xs:annotation>
+            <xs:documentation>工程(订单)编号, 由纯数字组成.</xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[0-9]+"/>
+        </xs:restriction>
+    </xs:simpleType>
 
     <!-- 轨道类型: 与 step1core/track.go 中的 TrackType 枚举一致 -->
     <xs:simpleType name="TrackKindType">
@@ -115,6 +144,21 @@
             <xs:enumeration value="midi"/>
             <xs:enumeration value="chord"/>
             <xs:enumeration value="master"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 片段类型: 原型中 slice/@type 出现过的取值 -->
+    <xs:simpleType name="SliceKindType">
+        <xs:annotation>
+            <xs:documentation>
+                片段类型: audio、midi、chord. 应与父 track/@type 一致
+                (master 轨道不放片段, 故不在此列).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="audio"/>
+            <xs:enumeration value="midi"/>
+            <xs:enumeration value="chord"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -144,110 +188,94 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <!-- ==================================================================
-         复杂类型
-         ================================================================== -->
-
-    <xs:complexType name="WorkType">
+    <!-- 元信息名: 例如 sample_rate、buffer_length、tempo、bpm、primary、scale -->
+    <xs:simpleType name="MetaNameType">
         <xs:annotation>
-            <xs:documentation>工程文档根元素.</xs:documentation>
+            <xs:documentation>head/meta 的 name, 不含空白字符.</xs:documentation>
         </xs:annotation>
-        <xs:sequence>
-            <xs:element name="head" type="HeadType" minOccurs="0">
-                <xs:annotation>
-                    <xs:documentation>工程头信息, 可选.</xs:documentation>
-                </xs:annotation>
-            </xs:element>
-            <xs:element name="timeline" type="TimelineType" minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation>
-                    <xs:documentation>顶层时间轴, 通常只有一个根时间轴(如 name="root").</xs:documentation>
-                </xs:annotation>
-            </xs:element>
-            <xs:element name="tracks" type="TracksType" minOccurs="0"/>
-            <xs:element name="devices" type="DevicesType" minOccurs="0"/>
-        </xs:sequence>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[^\s]+"/>
+        </xs:restriction>
+    </xs:simpleType>
 
-
-
-
-        <!--
-            放行其它命名空间的属性, 这样 work 上可以使用
-            xsi:noNamespaceSchemaLocation="step1work.xsd" (以及 xsi:schemaLocation 等).
-            processContents="lax": 有声明则校验, 无声明则跳过.
-        -->
-        <xs:anyAttribute namespace="##other" processContents="lax"/>
-    </xs:complexType>
-
-    <xs:complexType name="HeadType">
-        <xs:annotation>
-            <xs:documentation>工程头信息.</xs:documentation>
-        </xs:annotation>
-        <xs:sequence>
-            <xs:element name="title" type="xs:string">
-                <xs:annotation>
-                    <xs:documentation>工程标题.</xs:documentation>
-                </xs:annotation>
-            </xs:element>
-        </xs:sequence>
-    </xs:complexType>
-
-    <!-- 时间轴: 可以递归嵌套, 例如 root > work > part1 -->
-    <xs:complexType name="TimelineType">
-        <xs:annotation>
-            <xs:documentation>时间轴节点, 可嵌套子时间轴.</xs:documentation>
-        </xs:annotation>
-        <xs:sequence>
-            <xs:element name="timeline" type="TimelineType" minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation>
-                    <xs:documentation>子时间轴.</xs:documentation>
-                </xs:annotation>
-            </xs:element>
-        </xs:sequence>
-        <xs:attribute name="name" type="NameType" use="required">
-            <xs:annotation>
-                <xs:documentation>时间轴名称, 在文档内唯一, 供 slice/@timeline 引用.</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
-    </xs:complexType>
-
-    <xs:complexType name="TracksType">
-        <xs:annotation>
-            <xs:documentation>轨道集合.</xs:documentation>
-        </xs:annotation>
-        <xs:sequence>
-            <xs:element name="track" type="TrackType" minOccurs="0" maxOccurs="unbounded"/>
-        </xs:sequence>
-    </xs:complexType>
-
-    <xs:complexType name="TrackType">
-        <xs:annotation>
-            <xs:documentation>一条轨道. audio / midi 轨道可以包含 slice 片段.</xs:documentation>
-        </xs:annotation>
-        <xs:sequence>
-            <xs:element name="slice" type="SliceType" minOccurs="0" maxOccurs="unbounded">
-                <xs:annotation>
-                    <xs:documentation>把该轨道放置到某个时间轴上的片段.</xs:documentation>
-                </xs:annotation>
-            </xs:element>
-        </xs:sequence>
-        <xs:attribute name="name" type="NameType" use="required">
-            <xs:annotation>
-                <xs:documentation>轨道名称, 在文档内唯一, 例如 sound、drums、ch1.</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="type" type="TrackKindType" use="required">
-            <xs:annotation>
-                <xs:documentation>轨道类型.</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
-    </xs:complexType>
-
-    <xs:complexType name="SliceType">
+    <!-- 音名: 例如 C、D#、F#、C4、D-1 (与 step1core/music.go 的 ToneName 对应) -->
+    <xs:simpleType name="NoteNameType">
         <xs:annotation>
             <xs:documentation>
-                轨道在时间轴上的片段, 通过 timeline 属性引用已定义的时间轴.
-                slice 目前没有子元素, 因此示例中写成 &lt;slice timeline="part1"&gt; &lt;/slice&gt;
-                也只允许空白字符; 这里保留一个扩展点, 以便将来放入其它命名空间的子元素.
+                音名: 音级 A-G(不分大小写) + 可选升降号(# 或 b) + 可选八度(可带负号),
+                例如 C、D#、F#、C4、D-1.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[A-Ga-g](#|b)?(-?[0-9]+)?"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 和弦音符列表: 例如 "C,E,G"、"D#, F , A" -->
+    <xs:simpleType name="ChordNotesType">
+        <xs:annotation>
+            <xs:documentation>
+                以逗号分隔的音名列表, 逗号两侧允许空格, 例如 "C,E,G"、"E,G,B,D".
+                由于基于 xs:token, 元素内容中的换行与缩进会被自动折叠掉.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[A-Ga-g](#|b)?(-?[0-9]+)?(\s*,\s*[A-Ga-g](#|b)?(-?[0-9]+)?)*"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 节拍速度 BPM: [10,500], 允许小数, 例如 120、88、78.9 -->
+    <xs:simpleType name="BPMType">
+        <xs:annotation>
+            <xs:documentation>
+                每分钟节拍数. 与 step1core/music.go 的 BPM(float32) 对应,
+                取值范围 [10,500], 允许小数.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:decimal">
+            <xs:minInclusive value="10"/>
+            <xs:maxInclusive value="500"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 拍号: 例如 4/4、3/8、3/4 (对应 Tempo{upper,lower}) -->
+    <xs:simpleType name="TempoType">
+        <xs:annotation>
+            <xs:documentation>
+                拍号, 形如 "上/下", 例如 4/4、3/8. 上下都必须是非零正整数.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:pattern value="[1-9][0-9]*\s*/\s*[1-9][0-9]*"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 基于样本计数的时间量: 例如 offset="0"、length="12345" -->
+    <xs:simpleType name="SampleTimeType">
+        <xs:annotation>
+            <xs:documentation>
+                基于样本计数的非负整数时间量 (step1core/time.go 的 SampleTime, int64).
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:long">
+            <xs:minInclusive value="0"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- ==================================================================
+         公共复杂类型
+         ================================================================== -->
+
+    <!--
+        叶子元素基类型: 本身没有子元素, 但允许空白字符内容
+        (例如原型中的 &lt;wave src="./foo.wav"&gt; &lt;/wave&gt;),
+        并保留一个扩展点, 供将来插入其它命名空间的子元素.
+    -->
+    <xs:complexType name="ExtensionPointType">
+        <xs:annotation>
+            <xs:documentation>
+                空内容基类型. 只允许空白字符, 以及其它命名空间的扩展子元素;
+                不允许非空白的文本内容.
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
@@ -257,11 +285,279 @@
                 </xs:annotation>
             </xs:any>
         </xs:sequence>
-        <xs:attribute name="timeline" type="NameType" use="required">
+    </xs:complexType>
+
+    <!-- ==================================================================
+         各元素的类型
+         ================================================================== -->
+
+    <xs:complexType name="WorkType">
+        <xs:annotation>
+            <xs:documentation>工程文档根元素.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="head" type="tns:HeadType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>工程头信息, 可选.</xs:documentation>
+                </xs:annotation>
+                <!-- 同一个 head 下 meta/@name 不允许重复 -->
+                <xs:unique name="MetaNameKey">
+                    <xs:selector xpath="tns:meta"/>
+                    <xs:field xpath="@name"/>
+                </xs:unique>
+            </xs:element>
+            <xs:element name="timeline" type="tns:TimelineType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>顶层时间轴, 通常只有一个根时间轴(如 name="root").</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="tracks" type="tns:TracksType" minOccurs="0"/>
+            <xs:element name="devices" type="tns:DevicesType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="orderid" type="tns:OrderIDType" use="optional">
+            <xs:annotation>
+                <xs:documentation>
+                    工程(订单)编号, 例如 orderid="889923".
+                    该属性来自旧版 example.work.xml, 原型文档中未使用, 可按需删除.
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <!--
+            放行其它命名空间的属性, 这样 work 上可以使用
+            xsi:schemaLocation="http://bitwormhole.com/step1/xml/ns step1work.xsd"
+            (以及 xsi:noNamespaceSchemaLocation 等).
+            processContents="lax": 有声明则校验, 无声明则跳过.
+        -->
+        <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+
+    <!-- head : 标题 + 若干元信息 -->
+    <xs:complexType name="HeadType">
+        <xs:annotation>
+            <xs:documentation>工程头信息: title 之后可以跟任意多条 meta.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="title" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>工程标题.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="meta" type="tns:MetaType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>
+                        元信息, 例如 sample_rate、buffer_length、tempo、bpm、primary、scale.
+                        同名 meta 不允许重复.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- meta : <meta name="bpm" value="88"/> -->
+    <xs:complexType name="MetaType">
+        <xs:annotation>
+            <xs:documentation>一条元信息. 取值一律以文本形式给出, 例如 value="44100".</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="tns:ExtensionPointType">
+                <xs:attribute name="name" type="tns:MetaNameType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>元信息名, 在同一个 head 内唯一.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="value" type="xs:string" use="required">
+                    <xs:annotation>
+                        <xs:documentation>元信息值, 允许为空字符串.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- timeline : 可递归嵌套, 例如 root > work > part1 -->
+    <xs:complexType name="TimelineType">
+        <xs:annotation>
+            <xs:documentation>时间轴节点, 可嵌套子时间轴, 并可覆盖 bpm/tempo/offset/length.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="timeline" type="tns:TimelineType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>子时间轴.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="tns:NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>时间轴名称, 在文档内唯一, 供 slice/@timeline 引用.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="bpm" type="tns:BPMType" use="optional">
+            <xs:annotation>
+                <xs:documentation>该时间轴上的节拍速度, 例如 bpm="120".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="tempo" type="tns:TempoType" use="optional">
+            <xs:annotation>
+                <xs:documentation>该时间轴上的拍号, 例如 tempo="4/4"、tempo="3/8".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="offset" type="tns:SampleTimeType" use="optional">
+            <xs:annotation>
+                <xs:documentation>相对父时间轴的起始偏移(样本数), 例如 offset="0".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="length" type="tns:SampleTimeType" use="optional">
+            <xs:annotation>
+                <xs:documentation>长度(样本数), 例如 length="12345".</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:complexType name="TracksType">
+        <xs:annotation>
+            <xs:documentation>轨道集合.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="track" type="tns:TrackType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TrackType">
+        <xs:annotation>
+            <xs:documentation>一条轨道. audio / midi / chord 轨道可以包含 slice 片段.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="slice" type="tns:SliceType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>把该轨道放置到某个时间轴上的片段.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="name" type="tns:NameType" use="required">
+            <xs:annotation>
+                <xs:documentation>轨道名称, 在文档内唯一, 例如 sound、drums、ch1.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="type" type="tns:TrackKindType" use="required">
+            <xs:annotation>
+                <xs:documentation>轨道类型.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <!-- slice : 轨道在某个时间轴上的一个片段 -->
+    <xs:complexType name="SliceType">
+        <xs:annotation>
+            <xs:documentation>
+                轨道在时间轴上的片段, 通过 timeline 属性引用已定义的时间轴.
+                片段内容三选一: wave(音频) / midi / progression(和弦);
+                也可以是空的, 例如 &lt;slice timeline="part1" type="midi"&gt; &lt;/slice&gt;.
+                具体用哪一种由 track/@type 决定(音频轨用 wave, MIDI 轨用 midi, 和弦轨用 progression),
+                这一点无法在 XSD 1.0 中强制, 需要应用层自行保证.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:choice minOccurs="0" maxOccurs="1">
+                <xs:element name="wave" type="tns:WaveClipType">
+                    <xs:annotation>
+                        <xs:documentation>音频片段.</xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+                <xs:element name="midi" type="tns:MidiClipType">
+                    <xs:annotation>
+                        <xs:documentation>MIDI 片段.</xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+                <xs:element name="progression" type="tns:ProgressionType">
+                    <xs:annotation>
+                        <xs:documentation>和弦进行片段.</xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+            </xs:choice>
+            <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>扩展点: 允许插入其它命名空间的子元素.</xs:documentation>
+                </xs:annotation>
+            </xs:any>
+        </xs:sequence>
+        <xs:attribute name="timeline" type="tns:NameType" use="required">
             <xs:annotation>
                 <xs:documentation>目标时间轴名称, 必须与某个 timeline/@name 相同.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
+        <xs:attribute name="type" type="tns:SliceKindType" use="optional">
+            <xs:annotation>
+                <xs:documentation>片段类型, 应与父 track/@type 一致; 可以省略.</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <!-- wave : 音频片段, 例如 <wave src="./foo.wav"/> -->
+    <xs:complexType name="WaveClipType">
+        <xs:annotation>
+            <xs:documentation>音频片段. 指向一个音频文件.</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="tns:ExtensionPointType">
+                <xs:attribute name="src" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>
+                            音频文件路径, 例如 src="./foo.wav"; 相对路径以工程文档所在目录为基准.
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- midi : MIDI 片段, 例如 <midi src=""/> -->
+    <xs:complexType name="MidiClipType">
+        <xs:annotation>
+            <xs:documentation>MIDI 片段. src 允许为空字符串(表示内联或尚未绑定文件).</xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="tns:ExtensionPointType">
+                <xs:attribute name="src" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>MIDI 文件路径, 例如 src="./drums.mid"; 可以为空.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
+    </xs:complexType>
+
+    <!-- progression : 和弦进行 -->
+    <xs:complexType name="ProgressionType">
+        <xs:annotation>
+            <xs:documentation>和弦进行, 内含若干 chord.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="chord" type="tns:ChordType" minOccurs="0" maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- chord : <chord root="C" offset="0"> C,E,G </chord> -->
+    <xs:complexType name="ChordType">
+        <xs:annotation>
+            <xs:documentation>
+                一个和弦: root 给出根音, offset 给出位置(样本数, 缺省视为 0),
+                元素文本给出组成音, 例如 "C,E,G".
+            </xs:documentation>
+        </xs:annotation>
+        <xs:simpleContent>
+            <xs:extension base="tns:ChordNotesType">
+                <xs:attribute name="root" type="tns:NoteNameType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>根音, 例如 root="C"、root="D#"、root="F#".</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="offset" type="tns:SampleTimeType" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>相对片段起点的时间偏移(样本数), 例如 offset="10086".</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:simpleContent>
     </xs:complexType>
 
     <xs:complexType name="DevicesType">
@@ -269,7 +565,7 @@
             <xs:documentation>设备集合.</xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="device" type="DeviceType" minOccurs="0" maxOccurs="unbounded"/>
+            <xs:element name="device" type="tns:DeviceType" minOccurs="0" maxOccurs="unbounded"/>
         </xs:sequence>
     </xs:complexType>
 
@@ -281,23 +577,23 @@
             </xs:documentation>
         </xs:annotation>
         <xs:sequence>
-            <xs:element name="wire" type="WireType" minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="wire" type="tns:WireType" minOccurs="0" maxOccurs="unbounded">
                 <xs:annotation>
                     <xs:documentation>连到本设备端口的连线.</xs:documentation>
                 </xs:annotation>
             </xs:element>
         </xs:sequence>
-        <xs:attribute name="name" type="NameType" use="required">
+        <xs:attribute name="name" type="tns:NameType" use="required">
             <xs:annotation>
                 <xs:documentation>设备名称, 在文档内唯一, 例如 engine1、gain1、mix1.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="class" type="DeviceClassType" use="required">
+        <xs:attribute name="class" type="tns:DeviceClassType" use="required">
             <xs:annotation>
                 <xs:documentation>设备类名, 例如 engine、clock、adda、gain、mixer.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="id" type="IDType" use="optional">
+        <xs:attribute name="id" type="tns:IDType" use="optional">
             <xs:annotation>
                 <xs:documentation>设备标识, 可选, 例如 id="mix-1".</xs:documentation>
             </xs:annotation>
@@ -312,16 +608,20 @@
                 例如 &lt;wire port="ch1" source="gain1#output"/&gt;.
             </xs:documentation>
         </xs:annotation>
-        <xs:attribute name="port" type="PortNameType" use="required">
-            <xs:annotation>
-                <xs:documentation>本设备上的目标(输入)端口名.</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
-        <xs:attribute name="source" type="SourceRefType" use="required">
-            <xs:annotation>
-                <xs:documentation>源端口引用, 形如 "设备名#端口名", 例如 gain1#output.</xs:documentation>
-            </xs:annotation>
-        </xs:attribute>
+        <xs:complexContent>
+            <xs:extension base="tns:ExtensionPointType">
+                <xs:attribute name="port" type="tns:PortNameType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>本设备上的目标(输入)端口名.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="source" type="tns:SourceRefType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>源端口引用, 形如 "设备名#端口名", 例如 gain1#output.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
     </xs:complexType>
 
 </xs:schema>

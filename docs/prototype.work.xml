@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<work   xmlns="http://bitwormhole.com/step1/xml/ns"
+<work xmlns="http://bitwormhole.com/step1/xml/ns"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="step1work.xsd">
+    xsi:schemaLocation="http://bitwormhole.com/step1/xml/ns step1work.xsd">
 
     <!-- 这是一个 Step1-DAW 的工程文档示例  -->
 
@@ -71,7 +71,11 @@
 
         <device name="engine1" class="engine"> </device>
         <device name="clock1" class="clock"> </device>
-        <device name="adda1" class="adda"> </device>
+
+        <device name="adda1" class="adda">
+            <wire port="audio_output" source="mix1#monitor1" />
+        </device>
+
         <device name="gain1" class="gain"> </device>
 
         <device name="mix1" class="mixer" id="mix-1">
