@@ -55,7 +55,7 @@ type Element interface {
 	// 更新 element 的时钟, 使之与 bus 的时钟同步
 	Clock(lc *Bus) error
 
-	IO(lc *Bus) error
+	Route(lc *Bus) error
 
 	Configure(ec *EngineContext, cfg *EngineConfiguration) error
 }

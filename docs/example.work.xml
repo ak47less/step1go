@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<work orderid="889923"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="step1work.xsd">
+
+    <!-- 这是一个 Step1-DAW 的工程文档示例  -->
+
+    <head>
+        <title>Demo Step1 Work Document</title>
+    </head>
+
+    <timeline name="root">
+        <timeline name="work">
+            <timeline name="part1">
+            </timeline>
+            <timeline name="part2">
+            </timeline>
+        </timeline>
+    </timeline>
+
+    <tracks>
+
+        <track name="sound" type="audio">
+
+            <slice timeline="part1"> </slice>
+            <slice timeline="part2"> </slice>
+
+        </track>
+        <track name="drums" type="midi"> </track>
+        <track name="pad" type="midi">
+
+            <slice timeline="part1"> </slice>
+            <slice timeline="part2"> </slice>
+
+        </track>
+        <track name="ch1" type="chord"> </track>
+        <track name="m1" type="master"> </track>
+
+    </tracks>
+
+    <devices>
+
+        <device name="engine1" class="engine"> </device>
+        <device name="clock1" class="clock"> </device>
+        <device name="adda1" class="adda"> </device>
+        <device name="gain1" class="gain"> </device>
+
+        <device name="mix1" class="mixer" id="mix-1">
+            <wire port="ch1" source="gain1#output" />
+            <wire port="ch2" source="adda1#ch1" />
+        </device>
+
+    </devices>
+
+
+</work>

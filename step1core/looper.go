@@ -1,6 +1,8 @@
 package step1core
 
-import "time"
+import (
+	"time"
+)
 
 type Looper struct {
 	context *EngineContext
@@ -50,57 +52,131 @@ func (inst *Looper) runWithErr() error {
 	elist := ctx.ElementManager.ListAll()
 	state := &ctx.State
 	logger := ctx.Logger
+	lp := new(Looping)
 
 	bus.Context = ctx
-
 	state.Started = true
 
+	lp.logger = logger
+	lp.state = state
+	lp.context = ctx
+	lp.elementList = elist
+	lp.bus = bus
+	lp.clock = clock
+
 	defer func() {
-
 		state.Stopped = true
-
 	}()
 
 	for index = 0; ; index++ {
-
-		redo := ctx.ConfigRedo
 
 		if state.Stopping {
 			break
 		}
 
-		if redo != nil {
-			ctx.ConfigRedo = nil
-			for _, el := range elist {
-				err = el.Configure(ctx, redo)
-				if err != nil {
-					return err
-				}
-			}
+		//update
+		if lp.needUpdate() {
+			err = lp.update()
+			lp.handleError(err)
 		}
 
 		// clock
-
-		clock.Next(bus)
-
-		for _, el := range elist {
-			err = el.Clock(bus)
-			if err != nil {
-				return err
-			}
-		}
+		err = lp.handleClock()
+		lp.handleError(err)
 
 		// I/O
+		err = lp.handleIO()
+		lp.handleError(err)
 
-		for _, el := range elist {
-			err = el.IO(bus)
-			if err != nil {
-				return err
-			}
-		}
-
-		logger.Trace("engine.loop[%d]", index)
+		// log
+		lp.log(index)
 	}
 
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type Looping struct {
+	elementList []Element
+
+	wireList []*Wire
+
+	logger *Logger
+
+	context *EngineContext
+
+	state *EngineState
+
+	bus *Bus
+
+	clock Clock
+}
+
+func (inst *Looping) log(index int64) error {
+
+	logger.Trace("engine.loop[%d]", index)
+
+}
+
+func (inst *Looping) needUpdate() bool {
+
+	redo := ctx.ConfigRedo
+
+}
+
+func (inst *Looping) update() error {
+
+	if redo != nil {
+		ctx.ConfigRedo = nil
+		for _, el := range elist {
+			err = el.Configure(ctx, redo)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+}
+
+func (inst *Looping) handleClock() error {
+
+	var err error
+	all := inst.elementList
+	bus := inst.bus
+	cl := inst.clock
+
+	cl.Next(bus)
+
+	for _, el := range all {
+		err = el.Clock(bus)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *Looping) handleIO() error {
+
+	all := inst.wireList
+
+	for _, el := range all {
+		err = el.IO(bus)
+		if err != nil {
+			return err
+		}
+	}
+
+}
+
+func (inst *Looping) handleError(err error) {
+	if err == nil {
+		return
+	}
+	inst.logger.Error("%s", err.Error())
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF

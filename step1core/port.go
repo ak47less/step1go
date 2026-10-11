@@ -44,16 +44,18 @@ type Port interface {
 }
 
 type Reader interface {
-	Read(lc *Bus) error
+	Read(bus *Bus) error
 }
 
 type Writer interface {
-	Write(lc *Bus) error
+	Write(bus *Bus) error
 }
 
 type Input interface {
 	Port
 	Writer
+
+	GetSource() Output
 }
 
 type Output interface {

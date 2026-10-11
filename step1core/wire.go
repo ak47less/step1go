@@ -13,6 +13,8 @@ type WireConfig struct {
 }
 
 type Wire struct {
+	Priority int
+
 	Source Output
 
 	Destination Input
