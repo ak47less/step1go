@@ -1,38 +1,42 @@
 package step1core
 
 type EngineContext struct {
+
+	// config
+
 	Configuration *EngineConfiguration
 	ConfigRedo    *EngineConfiguration // 需要重新配置的信息 , 否则为 nil
 
 	// time-lines
+
 	RootTimeline    *Timeline // timeline for engine
 	ProjectTimeline *Timeline // timeline for document (project)
 
-	Engine Engine
-
-	Loader EngineLoader
-
-	Transport Transport
-
-	Looper *Looper
-
-	Clock Clock
-
-	Wires []*Wire
+	// runtime-data
 
 	State EngineState
 
-	DeviceFactory DeviceFactory // the main Device factory
+	TransportContext *TransportContext
+	Looper           *Looper
+	DOM              *DOM
 
-	DeviceManager DeviceManager
+	Wires []*Wire
 
+	// 以下接口由 factory 创建
+
+	DeviceFactory  DeviceFactory // the main Device factory
+	DeviceManager  DeviceManager
 	DeviceRegistry DeviceRegistry
+	LifeManager    LifeManager
+	Logger         Logger
+	LS             EngineLS
+	TrackManager   TrackManager
 
-	LifeManager LifeManager
+	// 以下接口由 device 提供, 是一些特殊的 device
 
-	TrackManager TrackManager
-
-	Logger Logger
+	Clock     Clock
+	Engine    Engine
+	Transport Transport
 }
 
 type Bus struct {

@@ -32,6 +32,7 @@ import (
 // 已知简化 (与 xsd 的对应关系):
 //   - 注释 / 处理指令 / DOCTYPE 在解码时被忽略, DOM 中不保留(接口里没有对应的节点类型);
 //   - 不支持混合内容: 元素要么只有文本, 要么只有子元素, 二者同时出现时丢弃文本;
+//     文本内容在解码时会去掉首尾空白 (与 xs:token 的折叠语义一致, 也便于忽略 XML 缩进);
 //   - 属性按读入/写入顺序保存, 属性名匹配不区分"前缀:名字"与"名字"(两种写法都能命中),
 //     解码时若属性前缀有 xmlns 声明, 则 Namespace 记下它的 URI, 否则 Namespace 为空串;
 //   - 编码输出带 XML 声明, 缩进 4 个空格; 没有子元素与文本的元素写成自闭合标签.
@@ -265,6 +266,9 @@ func (inst *domElement) ListChildren() []step1core.DOMElement {
 
 // ListChildrenByTag implements [step1core.DOMElement].
 func (inst *domElement) ListChildrenByTag(tag string) []step1core.DOMElement {
+	if inst == nil {
+		return nil
+	}
 	return innerWrapElements(inst.innerListChildNodes(tag))
 }
 
@@ -555,6 +559,22 @@ func innerWrapElement(node *domElement) step1core.DOMElement {
 		node.wrapper = innerNewWrapper(node)
 	}
 	return node.wrapper
+}
+
+// innerWrapAs 把内部节点包装成接口 T; 节点类型不匹配时返回错误.
+//
+// 新建元素时应当统一用它来取得包装对象 (而不是直接 &domXxxElement{node}),
+// 这样节点的 wrapper 缓存里存的始终是同一个对象.
+func innerWrapAs[T any](node *domElement) (T, error) {
+	var zero T
+	if node == nil {
+		return zero, fmt.Errorf("element is nil")
+	}
+	item, ok := innerWrapElement(node).(T)
+	if !ok {
+		return zero, fmt.Errorf("unexpected element type, tag: %s", node.tag)
+	}
+	return item, nil
 }
 
 // innerNewWrapper 新建一个包装对象.
@@ -1453,6 +1473,9 @@ var _ step1core.DOMDocument = (*innerDOMDocument)(nil)
 //
 // 文档节点的 owner 就是它自己.
 func (inst *innerDOMDocument) GetOwner() step1core.DOMDocument {
+	if inst == nil {
+		return nil
+	}
 	return inst
 }
 
@@ -1482,7 +1505,7 @@ func (inst *innerDOMDocument) GetRoot() (step1core.WorkElement, error) {
 		return nil, fmt.Errorf("invalid root element: %s", inst.root.tag)
 	}
 
-	return &domWorkElement{inst.root}, nil
+	return innerWrapAs[step1core.WorkElement](inst.root)
 }
 
 // SetRoot implements [step1core.DOMDocument].
@@ -1537,7 +1560,7 @@ func (inst *innerDOMFactory) CreateWorkElement(doc step1core.DOMDocument) (step1
 	if err != nil {
 		return nil, err
 	}
-	return &domWorkElement{node}, nil
+	return innerWrapAs[step1core.WorkElement](node)
 }
 
 // CreateHeadElement implements [step1core.DOMFactory].
@@ -1546,7 +1569,7 @@ func (inst *innerDOMFactory) CreateHeadElement(doc step1core.DOMDocument) (step1
 	if err != nil {
 		return nil, err
 	}
-	return &domHeadElement{node}, nil
+	return innerWrapAs[step1core.HeadElement](node)
 }
 
 // CreateMetaElement implements [step1core.DOMFactory].
@@ -1555,7 +1578,7 @@ func (inst *innerDOMFactory) CreateMetaElement(doc step1core.DOMDocument) (step1
 	if err != nil {
 		return nil, err
 	}
-	return &domMetaElement{node}, nil
+	return innerWrapAs[step1core.MetaElement](node)
 }
 
 // CreateTimelineElement implements [step1core.DOMFactory].
@@ -1564,7 +1587,7 @@ func (inst *innerDOMFactory) CreateTimelineElement(doc step1core.DOMDocument) (s
 	if err != nil {
 		return nil, err
 	}
-	return &domTimelineElement{node}, nil
+	return innerWrapAs[step1core.TimelineElement](node)
 }
 
 // CreateTracksElement implements [step1core.DOMFactory].
@@ -1573,7 +1596,7 @@ func (inst *innerDOMFactory) CreateTracksElement(doc step1core.DOMDocument) (ste
 	if err != nil {
 		return nil, err
 	}
-	return &domTracksElement{node}, nil
+	return innerWrapAs[step1core.TracksElement](node)
 }
 
 // CreateTrackElement implements [step1core.DOMFactory].
@@ -1582,7 +1605,7 @@ func (inst *innerDOMFactory) CreateTrackElement(doc step1core.DOMDocument) (step
 	if err != nil {
 		return nil, err
 	}
-	return &domTrackElement{node}, nil
+	return innerWrapAs[step1core.TrackElement](node)
 }
 
 // CreateSliceElement implements [step1core.DOMFactory].
@@ -1591,7 +1614,7 @@ func (inst *innerDOMFactory) CreateSliceElement(doc step1core.DOMDocument) (step
 	if err != nil {
 		return nil, err
 	}
-	return &domSliceElement{node}, nil
+	return innerWrapAs[step1core.SliceElement](node)
 }
 
 // CreateWaveClipElement implements [step1core.DOMFactory].
@@ -1600,7 +1623,7 @@ func (inst *innerDOMFactory) CreateWaveClipElement(doc step1core.DOMDocument) (s
 	if err != nil {
 		return nil, err
 	}
-	return &domWaveClipElement{node}, nil
+	return innerWrapAs[step1core.WaveClipElement](node)
 }
 
 // CreateMidiClipElement implements [step1core.DOMFactory].
@@ -1609,7 +1632,7 @@ func (inst *innerDOMFactory) CreateMidiClipElement(doc step1core.DOMDocument) (s
 	if err != nil {
 		return nil, err
 	}
-	return &domMidiClipElement{node}, nil
+	return innerWrapAs[step1core.MidiClipElement](node)
 }
 
 // CreateProgressionElement implements [step1core.DOMFactory].
@@ -1618,7 +1641,7 @@ func (inst *innerDOMFactory) CreateProgressionElement(doc step1core.DOMDocument)
 	if err != nil {
 		return nil, err
 	}
-	return &domProgressionElement{node}, nil
+	return innerWrapAs[step1core.ProgressionElement](node)
 }
 
 // CreateChordElement implements [step1core.DOMFactory].
@@ -1627,7 +1650,7 @@ func (inst *innerDOMFactory) CreateChordElement(doc step1core.DOMDocument) (step
 	if err != nil {
 		return nil, err
 	}
-	return &domChordElement{node}, nil
+	return innerWrapAs[step1core.ChordElement](node)
 }
 
 // CreateDevicesElement implements [step1core.DOMFactory].
@@ -1636,7 +1659,7 @@ func (inst *innerDOMFactory) CreateDevicesElement(doc step1core.DOMDocument) (st
 	if err != nil {
 		return nil, err
 	}
-	return &domDevicesElement{node}, nil
+	return innerWrapAs[step1core.DevicesElement](node)
 }
 
 // CreateDeviceElement implements [step1core.DOMFactory].
@@ -1645,7 +1668,7 @@ func (inst *innerDOMFactory) CreateDeviceElement(doc step1core.DOMDocument) (ste
 	if err != nil {
 		return nil, err
 	}
-	return &domDeviceElement{node}, nil
+	return innerWrapAs[step1core.DeviceElement](node)
 }
 
 // CreateWireElement implements [step1core.DOMFactory].
@@ -1654,7 +1677,7 @@ func (inst *innerDOMFactory) CreateWireElement(doc step1core.DOMDocument) (step1
 	if err != nil {
 		return nil, err
 	}
-	return &domWireElement{node}, nil
+	return innerWrapAs[step1core.WireElement](node)
 }
 
 // innerCreate 在本文档的命名空间里创建一个元素.
@@ -1778,7 +1801,7 @@ func (inst *innerDOMDocumentCodec) Decode(data []byte, doc step1core.DOMDocument
 				out := step1core.DOMAttribute{Value: attr.Value}
 				out.Name = attr.Name.Local
 				out.Prefix = innerPrefixOf(uri2prefix, attr.Name.Space)
-				if out.Prefix == "" && innerIsNamespaceURI(attr.Name.Space) {
+				if innerIsNamespaceURI(attr.Name.Space) {
 					out.Namespace = attr.Name.Space
 				}
 				node.attributes = append(node.attributes, out)
@@ -1835,7 +1858,11 @@ func (inst *innerDOMDocumentCodec) Decode(data []byte, doc step1core.DOMDocument
 	}
 
 	root.parent = nil
-	return doc.SetRoot(&domWorkElement{root})
+	work, err := innerWrapAs[step1core.WorkElement](root)
+	if err != nil {
+		return err
+	}
+	return doc.SetRoot(work)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

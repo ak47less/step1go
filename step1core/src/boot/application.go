@@ -14,6 +14,8 @@ func NewApp() (*step1core.Application, error) {
 	app.SetConfiguration(cfg)
 	app.SetFactory(factory)
 
+	// 注册一些默认的设备
+
 	return app, nil
 }
 

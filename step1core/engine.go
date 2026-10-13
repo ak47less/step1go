@@ -38,8 +38,13 @@ type EngineFactory interface {
 	CreateEngine(cfg *EngineConfiguration) (Engine, error)
 }
 
-type EngineLoader interface {
-	Load(en Engine) error
+type EngineLS interface {
+
+	// 根据 DOM 加载引擎中的各个组件
+	Load(ctx *EngineContext) error
+
+	// 按照引擎中的各个组件, 生成相应的DOM
+	Save(ctx *EngineContext) error
 }
 
 ////////////////////////////////////////////////////////////////////////////////

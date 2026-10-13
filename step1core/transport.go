@@ -17,6 +17,17 @@ const (
 
 type TransportContext struct {
 	State TransportState
+
+	Transport Transport
+
+	Recording bool
+
+	Playing bool
+
+	Paused bool
+
+	RootTimeline *Timeline
+	WorkTimeline *Timeline
 }
 
 ////////////////////////////////////////////////////////////////////////////////

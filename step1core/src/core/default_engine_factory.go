@@ -9,27 +9,30 @@ type DefaultEngineFactory struct {
 func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguration) (step1core.Engine, error) {
 
 	var err error
+
 	logger := step1core.Log()
 	engine := new(innerDefaultEngine)
 	ec := new(step1core.EngineContext)
 	track_man := new(DefaultTrackManager)
 	ele_man := new(DefaultDeviceManager)
 	main_ef := new(MainDeviceFactory)
-	loader := new(DefaultEngineLoader)
+	ls := new(DefaultEngineLS)
 	life_man := new(DefaultLifeManager)
 	clock := new(DefaultClock)
 
 	ele_man.SetFactory(main_ef)
 
-	ec.Engine = engine
 	ec.Configuration = cfg
 	ec.DeviceFactory = main_ef
 	ec.DeviceManager = ele_man
 	ec.DeviceRegistry = main_ef
 	ec.TrackManager = track_man
 	ec.LifeManager = life_man
-	ec.Loader = loader
+	ec.LS = ls
 	ec.Logger = logger
+
+	ec.Transport = nil
+	ec.Engine = engine
 	ec.Clock = clock
 
 	engine.context = ec

@@ -18,6 +18,11 @@ const (
 	DeviceClassOscillator  DeviceClass = "step1/classes/oscillator"
 	DeviceClassGain        DeviceClass = "step1/classes/gain"
 
+	DeviceClassMixer   DeviceClass = "step1/classes/mixer"
+	DeviceClassMixer8  DeviceClass = "step1/classes/mixer8"
+	DeviceClassMixer16 DeviceClass = "step1/classes/mixer16"
+	DeviceClassMixer32 DeviceClass = "step1/classes/mixer32"
+
 	DeviceClassAudioIn  DeviceClass = "step1/classes/audio_in"
 	DeviceClassAudioOut DeviceClass = "step1/classes/audio_out"
 	DeviceClassFileIn   DeviceClass = "step1/classes/file_in"

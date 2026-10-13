@@ -23,12 +23,12 @@ func (inst *innerDefaultEngine) Load() error {
 		return fmt.Errorf("engine context is nil")
 	}
 
-	loader := ctx.Loader
-	if loader == nil {
-		return fmt.Errorf("engine loader is nil")
+	ls := ctx.LS
+	if ls == nil {
+		return fmt.Errorf("engine.LS is nil")
 	}
 
-	return loader.Load(inst)
+	return ls.Load(inst.context)
 }
 
 // Reset implements [step1core.Engine].
