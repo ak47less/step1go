@@ -6,8 +6,8 @@
 
     文档整体结构:
         work
-        ├── head                (工程头: title + meta*)
-        ├── timeline*           (时间轴树, 可递归嵌套; 可带 bpm/tempo/offset/length)
+        ├── head                (工程头: title + meta* + description?)
+        ├── timeline            (根时间轴, 可递归嵌套; 可带 bpm/tempo/offset/length)
         ├── channels            (通道集合)
         │   └── channel*        (name + type)
         ├── tracks              (轨道集合)
@@ -21,6 +21,9 @@
             └── device*         (name + class + 可选 id)
                 └── wire*       (port + source)
 
+        work 下的五个直接子元素可以按任意顺序出现, 但各自最多出现一次, 见 WorkType.
+        除 work 之外, 其余元素内部的子元素顺序仍由 xs:sequence 约束.
+
     命名空间:
       原型文档在 work 上声明了默认命名空间
           xmlns="http://bitwormhole.com/step1/xml/ns"
@@ -29,7 +32,11 @@
           xsi:schemaLocation="http://bitwormhole.com/step1/xml/ns step1work.xsd"
 
     设计约定:
-      1. 元素顺序与原型一致, 用 xs:sequence 约束; 属性无顺序要求.
+      1. work 的直接子元素 (head / timeline / channels / tracks / devices) 顺序自由,
+         且各自最多出现一次, 用 xs:all 约束 (XSD 1.0 即支持, 因为此处没有
+         maxOccurs > 1 的子元素, 也没有通配符).
+         work 内部其余元素以及其它元素内部的子元素顺序, 仍与原型一致, 用 xs:sequence
+         约束; 属性无顺序要求.
       2. 除结构约束外, 还包含以下语义约束(可按需删除):
          TimelineNameKey  - timeline/@name 全文唯一
          SliceTimelineRef - slice/@timeline 必须指向已存在的 timeline
@@ -46,13 +53,14 @@
          TempoType      <- music.go    (Tempo{upper,lower}, 形如 "4/4")
          SampleTimeType <- time.go     (SampleTime int64)
          NoteNameType   <- music.go    (ToneName, 形如 "C"、"F#"、"C4"、"D-1")
+         DescriptionType<- 自由文本 (暂无对应 Go 类型)
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://bitwormhole.com/step1/xml/ns"
            targetNamespace="http://bitwormhole.com/step1/xml/ns"
            elementFormDefault="qualified"
            attributeFormDefault="unqualified"
-           version="1.2">
+           version="1.5">
 
     <!-- ==================================================================
          根元素 work
@@ -318,10 +326,17 @@
         <xs:annotation>
             <xs:documentation>工程文档根元素.</xs:documentation>
         </xs:annotation>
-        <xs:sequence>
+        <!--
+            子元素顺序不受约束, 且每个子元素最多出现一次.
+            这里用 xs:all: 五个子元素可以按任意顺序出现, 但 head / timeline /
+            channels / tracks / devices 各自只能出现一次 (minOccurs="0" 表示可选,
+            maxOccurs 缺省为 1). 因为此处的子元素没有 maxOccurs > 1, 也没有通配符,
+            所以 xs:all 在 XSD 1.0 下即合法, 无需 XSD 1.1.
+        -->
+        <xs:all>
             <xs:element name="head" type="tns:HeadType" minOccurs="0">
                 <xs:annotation>
-                    <xs:documentation>工程头信息, 可选.</xs:documentation>
+                    <xs:documentation>工程头信息, 可选, 最多一个.</xs:documentation>
                 </xs:annotation>
                 <!-- 同一个 head 下 meta/@name 不允许重复 -->
                 <xs:unique name="MetaNameKey">
@@ -329,15 +344,27 @@
                     <xs:field xpath="@name"/>
                 </xs:unique>
             </xs:element>
-            <xs:element name="timeline" type="tns:TimelineType" minOccurs="0" maxOccurs="unbounded">
+            <xs:element name="timeline" type="tns:TimelineType" minOccurs="0">
                 <xs:annotation>
-                    <xs:documentation>顶层时间轴, 通常只有一个根时间轴(如 name="root").</xs:documentation>
+                    <xs:documentation>根时间轴, 可选, 最多一个; 子时间轴的嵌套由 TimelineType 递归表达.</xs:documentation>
                 </xs:annotation>
             </xs:element>
-            <xs:element name="channels" type="tns:ChannelsType" minOccurs="0"/>
-            <xs:element name="tracks" type="tns:TracksType" minOccurs="0"/>
-            <xs:element name="devices" type="tns:DevicesType" minOccurs="0"/>
-        </xs:sequence>
+            <xs:element name="channels" type="tns:ChannelsType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>通道集合, 可选, 最多一个.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="tracks" type="tns:TracksType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>轨道集合, 可选, 最多一个.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="devices" type="tns:DevicesType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>设备集合, 可选, 最多一个.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:all>
         <xs:attribute name="orderid" type="tns:OrderIDType" use="optional">
             <xs:annotation>
                 <xs:documentation>
@@ -355,10 +382,13 @@
         <xs:anyAttribute namespace="##other" processContents="lax"/>
     </xs:complexType>
 
-    <!-- head : 标题 + 若干元信息 -->
+    <!-- head : 标题 + 若干元信息 + 可选描述 -->
     <xs:complexType name="HeadType">
         <xs:annotation>
-            <xs:documentation>工程头信息: title 之后可以跟任意多条 meta.</xs:documentation>
+            <xs:documentation>
+                工程头信息: title, 之后是任意多条 meta, 最后是可选的一段 description;
+                顺序与原型文档一致 (description 写在所有 meta 之后).
+            </xs:documentation>
         </xs:annotation>
         <xs:sequence>
             <xs:element name="title" type="xs:string">
@@ -374,8 +404,27 @@
                     </xs:documentation>
                 </xs:annotation>
             </xs:element>
+            <xs:element name="description" type="tns:DescriptionType" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>
+                        工程描述, 可选且最多一次, 例如
+                        &lt;description&gt;这是一个 Step1 工程文件的示例&lt;/description&gt;.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:sequence>
     </xs:complexType>
+
+    <!-- description : 自由文本, 例如 <description> 这是一个 Step1 工程文件的示例 </description> -->
+    <xs:simpleType name="DescriptionType">
+        <xs:annotation>
+            <xs:documentation>
+                工程描述: 任意文本, 例如 "这是一个 Step1 工程文件的示例".
+                首尾空白由文档编写者自行决定, 解析时可 trim.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string"/>
+    </xs:simpleType>
 
     <!-- meta : <meta name="bpm" value="88"/> -->
     <xs:complexType name="MetaType">

@@ -18,6 +18,8 @@
         <meta name="primary" value="F#" />
         <meta name="scale" value="major" />
 
+        <description> 这是一个 Step1 工程文件的示例 </description>
+
     </head>
 
     <channels>
@@ -35,7 +37,6 @@
             </timeline>
         </timeline>
     </timeline>
-
 
     <tracks>
 
