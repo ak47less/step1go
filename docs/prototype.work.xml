@@ -20,6 +20,13 @@
 
     </head>
 
+    <channels>
+        <channel name="audio_left" type="audio"> </channel>
+        <channel name="audio_right" type="audio"> </channel>
+        <channel name="midi_notes" type="midi"> </channel>
+        <channel name="midi_clock" type="midi"> </channel>
+    </channels>
+
     <timeline name="root">
         <timeline name="work" bpm="120" tempo="4/4">
             <timeline name="part1" tempo="3/8">
@@ -28,6 +35,7 @@
             </timeline>
         </timeline>
     </timeline>
+
 
     <tracks>
 

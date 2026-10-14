@@ -8,6 +8,8 @@
         work
         ├── head                (工程头: title + meta*)
         ├── timeline*           (时间轴树, 可递归嵌套; 可带 bpm/tempo/offset/length)
+        ├── channels            (通道集合)
+        │   └── channel*        (name + type)
         ├── tracks              (轨道集合)
         │   └── track*          (name + type)
         │       └── slice*      (timeline + 可选 type)
@@ -23,8 +25,7 @@
       原型文档在 work 上声明了默认命名空间
           xmlns="http://bitwormhole.com/step1/xml/ns"
       因此本 schema 设置了相同的 targetNamespace, 且 elementFormDefault="qualified".
-      注意: 原型文档仍写着 xsi:noNamespaceSchemaLocation="step1work.xsd",
-      这与上面的默认命名空间相矛盾(该属性只用于没有命名空间的文档), 建议改为:
+      原型文档通过下面的属性把该命名空间绑定到本 schema:
           xsi:schemaLocation="http://bitwormhole.com/step1/xml/ns step1work.xsd"
 
     设计约定:
@@ -32,6 +33,7 @@
       2. 除结构约束外, 还包含以下语义约束(可按需删除):
          TimelineNameKey  - timeline/@name 全文唯一
          SliceTimelineRef - slice/@timeline 必须指向已存在的 timeline
+         ChannelNameKey   - channel/@name 全文唯一
          TrackNameKey     - track/@name 全文唯一
          DeviceNameKey    - device/@name 全文唯一 (wire/@source 按设备名寻址)
          DeviceIdUnique   - device/@id 若存在则唯一
@@ -39,6 +41,7 @@
       3. 取值范围取自 step1core 的 Go 领域模型:
          TrackKindType  <- track.go    (TrackType)
          SliceKindType  <- track.go    (TrackType, 不含 master)
+         ChannelKindType<- 暂无对应 Go 类型 (step1core 尚未提供通道模型)
          BPMType        <- music.go    (BPM float32, 注释给出区间 [10,500])
          TempoType      <- music.go    (Tempo{upper,lower}, 形如 "4/4")
          SampleTimeType <- time.go     (SampleTime int64)
@@ -49,7 +52,7 @@
            targetNamespace="http://bitwormhole.com/step1/xml/ns"
            elementFormDefault="qualified"
            attributeFormDefault="unqualified"
-           version="1.1">
+           version="1.2">
 
     <!-- ==================================================================
          根元素 work
@@ -68,6 +71,12 @@
             <xs:selector xpath=".//tns:slice"/>
             <xs:field xpath="@timeline"/>
         </xs:keyref>
+
+        <!-- 通道名称在整篇文档中必须唯一 -->
+        <xs:key name="ChannelNameKey">
+            <xs:selector xpath=".//tns:channel"/>
+            <xs:field xpath="@name"/>
+        </xs:key>
 
         <!-- 轨道名称在整篇文档中必须唯一 -->
         <xs:key name="TrackNameKey">
@@ -159,6 +168,20 @@
             <xs:enumeration value="audio"/>
             <xs:enumeration value="midi"/>
             <xs:enumeration value="chord"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <!-- 通道类型: 原型中 channel/@type 出现过的取值 -->
+    <xs:simpleType name="ChannelKindType">
+        <xs:annotation>
+            <xs:documentation>
+                通道类型: audio (音频通道)、midi (MIDI 通道).
+                取值风格与 TrackKindType 一致, 但不含 chord / master.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:token">
+            <xs:enumeration value="audio"/>
+            <xs:enumeration value="midi"/>
         </xs:restriction>
     </xs:simpleType>
 
@@ -311,6 +334,7 @@
                     <xs:documentation>顶层时间轴, 通常只有一个根时间轴(如 name="root").</xs:documentation>
                 </xs:annotation>
             </xs:element>
+            <xs:element name="channels" type="tns:ChannelsType" minOccurs="0"/>
             <xs:element name="tracks" type="tns:TracksType" minOccurs="0"/>
             <xs:element name="devices" type="tns:DevicesType" minOccurs="0"/>
         </xs:sequence>
@@ -411,6 +435,44 @@
                 <xs:documentation>长度(样本数), 例如 length="12345".</xs:documentation>
             </xs:annotation>
         </xs:attribute>
+    </xs:complexType>
+
+    <!-- channels : 通道集合, 例如 audio_left、midi_clock -->
+    <xs:complexType name="ChannelsType">
+        <xs:annotation>
+            <xs:documentation>通道集合.</xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="channel" type="tns:ChannelType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>一条通道.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- channel : <channel name="audio_left" type="audio"> </channel> -->
+    <xs:complexType name="ChannelType">
+        <xs:annotation>
+            <xs:documentation>
+                一条通道, 例如音频输出通道 audio_left、audio_right, MIDI 通道 midi_notes、midi_clock.
+                元素内容为空白 (可保留扩展点), 通道与轨道/端口之间的对应关系由应用层决定.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexContent>
+            <xs:extension base="tns:ExtensionPointType">
+                <xs:attribute name="name" type="tns:NameType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>通道名称, 在文档内唯一, 例如 audio_left、midi_notes.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="type" type="tns:ChannelKindType" use="required">
+                    <xs:annotation>
+                        <xs:documentation>通道类型: audio 或 midi.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:complexContent>
     </xs:complexType>
 
     <xs:complexType name="TracksType">
