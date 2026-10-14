@@ -137,6 +137,13 @@ func summary(root step1core.WorkElement) string {
 		for _, meta := range head.ListMeta() {
 			buf.WriteString("meta:" + string(meta.GetName()) + "=" + meta.GetValue() + "\n")
 		}
+		buf.WriteString("description=" + head.GetDescription() + "\n")
+	}
+
+	if channels := root.GetChannels(); channels != nil {
+		for _, channel := range channels.ListChannels() {
+			buf.WriteString("channel:" + string(channel.GetName()) + "/" + step1core.FormatChannelTypeText(channel.GetType()) + "\n")
+		}
 	}
 
 	var walk func(items []step1core.TimelineElement)
@@ -159,7 +166,9 @@ func summary(root step1core.WorkElement) string {
 			walk(item.ListTimelines())
 		}
 	}
-	walk(root.ListTimelines())
+	if top := root.GetTimeline(); top != nil {
+		walk([]step1core.TimelineElement{top})
+	}
 
 	if tracks := root.GetTracks(); tracks != nil {
 		for _, track := range tracks.ListTracks() {
@@ -233,9 +242,12 @@ func TestDOMDecodePrototypeRoot(t *testing.T) {
 	// 根元素上的命名空间声明与 xsi:schemaLocation 都要保留
 	requireEqual(t, "root@xmlns", attr(t, root, "xmlns"), step1core.Step1WorkNamespace)
 	requireContains(t, "root@xsi:schemaLocation", attr(t, root, "xsi:schemaLocation"), "step1work.xsd")
+	// work 的子元素是 xs:all, 解码按文档中的实际顺序保留
 	requireSlice(t, "root.ListChildren()", tagsOf(root.ListChildren()),
-		[]string{step1core.TagHead, step1core.TagTimeline, step1core.TagTracks, step1core.TagDevices})
+		[]string{step1core.TagHead, step1core.TagChannels, step1core.TagTimeline,
+			step1core.TagTracks, step1core.TagDevices})
 	requireEqual(t, "len(ListChildrenByTag(timeline))", len(root.ListChildrenByTag(step1core.TagTimeline)), 1)
+	requireEqual(t, "len(ListChildrenByTag(channels))", len(root.ListChildrenByTag(step1core.TagChannels)), 1)
 }
 
 // attr 读取一个必填属性.
@@ -271,6 +283,7 @@ func TestDOMDecodePrototypeHead(t *testing.T) {
 		t.Fatal("GetHead() = nil")
 	}
 	requireEqual(t, "title", head.GetTitle(), "Demo Step1 Work Document")
+	requireEqual(t, "description", head.GetDescription(), "这是一个 Step1 工程文件的示例")
 	requireEqual(t, "head.tag", head.GetTag(), step1core.TagHead)
 	if parent := head.GetParent(); parent == nil || parent.GetTag() != step1core.TagWork {
 		t.Errorf("head.GetParent() = %v", parent)
@@ -307,12 +320,14 @@ func TestDOMDecodePrototypeTimelines(t *testing.T) {
 	dom, _ := loadPrototype(t)
 	root := requireRoot(t, dom)
 
-	top := root.ListTimelines()
-	requireEqual(t, "len(top timeline)", len(top), 1)
-	requireEqual(t, "timeline[0].name", top[0].GetName(), step1core.NameType("root"))
-	requireNilOptional(t, "timeline[0].bpm", top[0].GetBPM())
+	top := root.GetTimeline()
+	if top == nil {
+		t.Fatal("GetTimeline() = nil")
+	}
+	requireEqual(t, "timeline.name", top.GetName(), step1core.NameType("root"))
+	requireNilOptional(t, "timeline.bpm", top.GetBPM())
 
-	work := top[0].ListTimelines()
+	work := top.ListTimelines()
 	requireEqual(t, "len(work timeline)", len(work), 1)
 	requireEqual(t, "work.name", work[0].GetName(), step1core.NameType("work"))
 	requireOptional(t, "work.bpm", work[0].GetBPM(), step1core.BPM(120))
@@ -356,6 +371,46 @@ func tempoLower(tempo *step1core.Tempo) *uint {
 	}
 	value := tempo.Lower
 	return &value
+}
+
+func TestDOMDecodePrototypeChannels(t *testing.T) {
+
+	dom, _ := loadPrototype(t)
+	root := requireRoot(t, dom)
+
+	channels := root.GetChannels()
+	if channels == nil {
+		t.Fatal("GetChannels() = nil")
+	}
+	requireEqual(t, "channels.tag", channels.GetTag(), step1core.TagChannels)
+
+	list := channels.ListChannels()
+	requireEqual(t, "len(channel)", len(list), 4)
+
+	requireEqual(t, "channel[0].name", list[0].GetName(), step1core.NameType("audio_left"))
+	requireEqual(t, "channel[0].type", list[0].GetType(), step1core.ChannelTypeAudio)
+	requireEqual(t, "channel[0].tag", list[0].GetTag(), step1core.TagChannel)
+	requireEqual(t, "channel[0].text", list[0].GetText(), "")
+
+	requireEqual(t, "channel[1].name", list[1].GetName(), step1core.NameType("audio_right"))
+	requireEqual(t, "channel[1].type", list[1].GetType(), step1core.ChannelTypeAudio)
+	requireEqual(t, "channel[2].name", list[2].GetName(), step1core.NameType("midi_notes"))
+	requireEqual(t, "channel[2].type", list[2].GetType(), step1core.ChannelTypeMIDI)
+	requireEqual(t, "channel[3].name", list[3].GetName(), step1core.NameType("midi_clock"))
+	requireEqual(t, "channel[3].type", list[3].GetType(), step1core.ChannelTypeMIDI)
+
+	// 包装对象的身份是稳定的
+	if channels != root.GetChannels() {
+		t.Errorf("GetChannels() should return the same object")
+	}
+
+	// 按名字查找 (ChannelNameKey)
+	found, err := root.FindChannel("midi_clock")
+	requireNoError(t, "FindChannel(midi_clock)", err)
+	requireEqual(t, "FindChannel(midi_clock)", found, list[3])
+	if _, err := root.FindChannel("no-such-channel"); err == nil {
+		t.Errorf("FindChannel(no-such-channel) should fail")
+	}
 }
 
 func TestDOMDecodePrototypeTracks(t *testing.T) {
@@ -517,6 +572,8 @@ func TestDOMEncodePrototype(t *testing.T) {
 
 	// 文本与空元素
 	requireContains(t, "title", text, "<title>Demo Step1 Work Document</title>")
+	requireContains(t, "description", text, "<description>这是一个 Step1 工程文件的示例</description>")
+	requireContains(t, "channel", text, `<channel name="audio_left" type="audio"/>`)
 	requireContains(t, "midi", text, `<midi src=""/>`)
 	requireContains(t, "empty slice", text, `<slice timeline="part2"/>`)
 	requireContains(t, "chord", text, `<chord root="D#" offset="100">D#, F , A</chord>`)
@@ -585,10 +642,11 @@ func TestDOMFactoryBuildDocument(t *testing.T) {
 	root := requireRoot(t, dom)
 	factory := dom.Factory
 
-	// head : title + meta
+	// head : title + description + meta (meta 必须排在 description 之前)
 	head, err := factory.CreateHeadElement(doc)
 	requireNoError(t, "CreateHeadElement", err)
 	requireNoError(t, "SetTitle", head.SetTitle("Hello & <World>"))
+	requireNoError(t, "SetDescription", head.SetDescription("a demo work"))
 	meta, err := factory.CreateMetaElement(doc)
 	requireNoError(t, "CreateMetaElement", err)
 	requireNoError(t, "SetName", meta.SetName(step1core.MetaNameBPM))
@@ -610,7 +668,17 @@ func TestDOMFactoryBuildDocument(t *testing.T) {
 	length := step1core.SampleTime(480)
 	requireNoError(t, "part.SetLength", part.SetLength(&length))
 	requireNoError(t, "AddTimeline(part)", timeline.AddTimeline(part))
-	requireNoError(t, "AddTimeline(root)", root.AddTimeline(timeline))
+	requireNoError(t, "SetTimeline", root.SetTimeline(timeline))
+
+	// channels : audio_left
+	channels, err := factory.CreateChannelsElement(doc)
+	requireNoError(t, "CreateChannelsElement", err)
+	channel, err := factory.CreateChannelElement(doc)
+	requireNoError(t, "CreateChannelElement", err)
+	requireNoError(t, "channel.SetName", channel.SetName("audio_left"))
+	requireNoError(t, "channel.SetType", channel.SetType(step1core.ChannelTypeAudio))
+	requireNoError(t, "channels.AddChannel", channels.AddChannel(channel))
+	requireNoError(t, "root.SetChannels", root.SetChannels(channels))
 
 	// tracks : sound > slice > wave
 	tracks, err := factory.CreateTracksElement(doc)
@@ -646,12 +714,14 @@ func TestDOMFactoryBuildDocument(t *testing.T) {
 	requireNoError(t, "devices.AddDevice", devices.AddDevice(device))
 	requireNoError(t, "root.SetDevices", root.SetDevices(devices))
 
-	// 子元素顺序必须符合 xs:sequence : head, timeline*, tracks, devices
+	// work 的子元素按规范顺序写出 : head, timeline, channels, tracks, devices
+	// (xsd 用 xs:all, 顺序自由; 这里只是要求输出稳定)
 	requireSlice(t, "root.ListChildren()", tagsOf(root.ListChildren()),
-		[]string{step1core.TagHead, step1core.TagTimeline, step1core.TagTracks, step1core.TagDevices})
-	// head 内部 : title, meta*
+		[]string{step1core.TagHead, step1core.TagTimeline, step1core.TagChannels,
+			step1core.TagTracks, step1core.TagDevices})
+	// head 内部 : title, meta*, description
 	requireSlice(t, "head.ListChildren()", tagsOf(head.ListChildren()),
-		[]string{step1core.TagTitle, step1core.TagMeta})
+		[]string{step1core.TagTitle, step1core.TagMeta, step1core.TagDescription})
 
 	// 语义约束
 	if errs := step1core.CheckWorkConstraints(root); len(errs) != 0 {
@@ -664,6 +734,8 @@ func TestDOMFactoryBuildDocument(t *testing.T) {
 	text := string(data)
 	requireContains(t, "xmlns", text, `xmlns="`+step1core.Step1WorkNamespace+`"`)
 	requireContains(t, "title escaped", text, "<title>Hello &amp; &lt;World&gt;</title>")
+	requireContains(t, "description", text, "<description>a demo work</description>")
+	requireContains(t, "channel", text, `<channel name="audio_left" type="audio"/>`)
 	requireContains(t, "src escaped", text, `src="a&amp;b&quot;c.wav"`)
 	requireContains(t, "tempo", text, `tempo="3/4"`)
 	requireContains(t, "bpm", text, `bpm="99.5"`)
@@ -675,8 +747,10 @@ func TestDOMFactoryBuildDocument(t *testing.T) {
 	root2 := requireRoot(t, dom2)
 	requireSameSummary(t, root, root2)
 	requireEqual(t, "reloaded title", root2.GetHead().GetTitle(), "Hello & <World>")
+	requireEqual(t, "reloaded description", root2.GetHead().GetDescription(), "a demo work")
 	requireEqual(t, "reloaded src", root2.GetTracks().ListTracks()[0].ListSlices()[0].GetWaveClip().GetSrc(), `a&b"c.wav`)
-	requireEqual(t, "reloaded length", step1core.FormatSampleTimeText(*root2.ListTimelines()[0].ListTimelines()[0].GetLength()), "480")
+	requireEqual(t, "reloaded length", step1core.FormatSampleTimeText(*root2.GetTimeline().ListTimelines()[0].GetLength()), "480")
+	requireEqual(t, "reloaded channel", root2.GetChannels().ListChannels()[0].GetType(), step1core.ChannelTypeAudio)
 }
 
 func TestDOMSliceChoice(t *testing.T) {
@@ -785,6 +859,17 @@ func TestDOMOptionalAttributes(t *testing.T) {
 	requireOptional(t, "slice.type", slice.GetType(), step1core.TrackTypeMIDI)
 	requireNoError(t, "slice.SetType(nil)", slice.SetType(nil))
 	requireNilOptional(t, "slice.type(nil)", slice.GetType())
+
+	// head 的可选 description : 空串表示删除
+	head, _ := factory.CreateHeadElement(doc)
+	requireEqual(t, "description(before)", head.GetDescription(), "")
+	requireNoError(t, "SetDescription", head.SetDescription("a demo"))
+	requireEqual(t, "description", head.GetDescription(), "a demo")
+	requireNoError(t, "SetDescription 2", head.SetDescription("another"))
+	requireEqual(t, "len(description)", len(head.ListChildrenByTag(step1core.TagDescription)), 1)
+	requireNoError(t, "SetDescription(\"\")", head.SetDescription(""))
+	requireEqual(t, "description(\"\")", head.GetDescription(), "")
+	requireEqual(t, "len(description)", len(head.ListChildrenByTag(step1core.TagDescription)), 0)
 
 	// device 的可选 id
 	device, _ := factory.CreateDeviceElement(doc)
@@ -999,33 +1084,59 @@ func TestDOMReplaceAndRemoveSections(t *testing.T) {
 
 	head, _ := factory.CreateHeadElement(doc)
 	_ = head.SetTitle("first")
+	timeline, _ := factory.CreateTimelineElement(doc)
+	_ = timeline.SetName("root")
+	channels, _ := factory.CreateChannelsElement(doc)
 	tracks, _ := factory.CreateTracksElement(doc)
 	devices, _ := factory.CreateDevicesElement(doc)
 	requireNoError(t, "SetHead", root.SetHead(head))
+	requireNoError(t, "SetTimeline", root.SetTimeline(timeline))
+	requireNoError(t, "SetChannels", root.SetChannels(channels))
 	requireNoError(t, "SetTracks", root.SetTracks(tracks))
 	requireNoError(t, "SetDevices", root.SetDevices(devices))
 	requireSlice(t, "children", tagsOf(root.ListChildren()),
-		[]string{step1core.TagHead, step1core.TagTracks, step1core.TagDevices})
+		[]string{step1core.TagHead, step1core.TagTimeline, step1core.TagChannels,
+			step1core.TagTracks, step1core.TagDevices})
 
 	// 替换 head : 旧的会被移除, 新的插入在原来的位置 (最前面)
 	head2, _ := factory.CreateHeadElement(doc)
 	_ = head2.SetTitle("second")
 	requireNoError(t, "SetHead 2", root.SetHead(head2))
 	requireSlice(t, "children(after replace)", tagsOf(root.ListChildren()),
-		[]string{step1core.TagHead, step1core.TagTracks, step1core.TagDevices})
+		[]string{step1core.TagHead, step1core.TagTimeline, step1core.TagChannels,
+			step1core.TagTracks, step1core.TagDevices})
 	requireEqual(t, "head.title", root.GetHead().GetTitle(), "second")
 	requireEqual(t, "len(head)", len(root.ListChildrenByTag(step1core.TagHead)), 1)
 	if head.GetParent() != nil {
 		t.Errorf("replaced head should be detached")
 	}
 
+	// 替换 timeline : 在 work 下最多一个 (xs:all)
+	timeline2, _ := factory.CreateTimelineElement(doc)
+	_ = timeline2.SetName("root2")
+	requireNoError(t, "SetTimeline 2", root.SetTimeline(timeline2))
+	requireEqual(t, "len(timeline)", len(root.ListChildrenByTag(step1core.TagTimeline)), 1)
+	requireEqual(t, "timeline.name", root.GetTimeline().GetName(), step1core.NameType("root2"))
+	if timeline.GetParent() != nil {
+		t.Errorf("replaced timeline should be detached")
+	}
+	found, err := root.FindTimeline("root2")
+	requireNoError(t, "FindTimeline(root2)", err)
+	requireEqual(t, "FindTimeline(root2)", found, timeline2)
+
 	// nil 表示删除
 	requireNoError(t, "SetHead(nil)", root.SetHead(nil))
+	requireNoError(t, "SetTimeline(nil)", root.SetTimeline(nil))
+	requireNoError(t, "SetChannels(nil)", root.SetChannels(nil))
 	requireNoError(t, "SetTracks(nil)", root.SetTracks(nil))
 	requireNoError(t, "SetDevices(nil)", root.SetDevices(nil))
 	requireEqual(t, "len(children)", len(root.ListChildren()), 0)
-	if root.GetHead() != nil || root.GetTracks() != nil || root.GetDevices() != nil {
+	if root.GetHead() != nil || root.GetTimeline() != nil || root.GetChannels() != nil ||
+		root.GetTracks() != nil || root.GetDevices() != nil {
 		t.Errorf("sections should be removed")
+	}
+	if _, err := root.FindTimeline("root2"); err == nil {
+		t.Errorf("FindTimeline(root2) after removal should fail")
 	}
 }
 
@@ -1081,12 +1192,23 @@ func TestDOMConstraintsBroken(t *testing.T) {
 	root := requireRoot(t, dom)
 	factory := dom.Factory
 
-	// 两条同名的 timeline
+	// 两条同名的 timeline : work 下只能有一个 (xs:all), 用子时间轴制造重复
+	rootTimeline, _ := factory.CreateTimelineElement(doc)
+	_ = rootTimeline.SetName("dup")
+	childTimeline, _ := factory.CreateTimelineElement(doc)
+	_ = childTimeline.SetName("dup")
+	_ = rootTimeline.AddTimeline(childTimeline)
+	_ = root.SetTimeline(rootTimeline)
+
+	// 两条同名的 channel
+	channels, _ := factory.CreateChannelsElement(doc)
 	for i := 0; i < 2; i++ {
-		timeline, _ := factory.CreateTimelineElement(doc)
-		_ = timeline.SetName("root")
-		_ = root.AddTimeline(timeline)
+		channel, _ := factory.CreateChannelElement(doc)
+		_ = channel.SetName("c1")
+		_ = channel.SetType(step1core.ChannelTypeAudio)
+		_ = channels.AddChannel(channel)
 	}
+	_ = root.SetChannels(channels)
 
 	// 两条同名的 track, 其中第一条的 slice 引用了不存在的 timeline
 	tracks, _ := factory.CreateTracksElement(doc)
@@ -1127,7 +1249,7 @@ func TestDOMConstraintsBroken(t *testing.T) {
 
 	// 每条约束各有一处冲突
 	errs := step1core.CheckWorkConstraints(root)
-	requireEqual(t, "len(errors)", len(errs), 6)
+	requireEqual(t, "len(errors)", len(errs), 7)
 
 	found := make(map[step1core.WorkConstraint]string)
 	for _, item := range errs {
@@ -1139,8 +1261,9 @@ func TestDOMConstraintsBroken(t *testing.T) {
 	}
 
 	want := map[step1core.WorkConstraint]string{
-		step1core.WorkConstraintTimelineNameKey:  "work/timeline[2]",
+		step1core.WorkConstraintTimelineNameKey:  "work/timeline[1]/timeline[1]",
 		step1core.WorkConstraintSliceTimelineRef: "work/tracks/track[1]/slice[1]",
+		step1core.WorkConstraintChannelNameKey:   "work/channels/channel[2]",
 		step1core.WorkConstraintTrackNameKey:     "work/tracks/track[2]",
 		step1core.WorkConstraintDeviceNameKey:    "work/devices/device[2]",
 		step1core.WorkConstraintDeviceIdUnique:   "work/devices/device[2]",
@@ -1205,6 +1328,17 @@ func TestDOMValidationErrors(t *testing.T) {
 		t.Errorf("SetTimeline(\"bad name\") should fail")
 	}
 
+	channel, _ := factory.CreateChannelElement(doc)
+	if err := channel.SetName("bad name"); err == nil {
+		t.Errorf("channel.SetName(\"bad name\") should fail")
+	}
+	if err := channel.SetName(""); err == nil {
+		t.Errorf("channel.SetName(\"\") should fail")
+	}
+	if err := channel.SetType(step1core.ChannelTypeUnknown); err == nil {
+		t.Errorf("channel.SetType(unknown) should fail")
+	}
+
 	wire, _ := factory.CreateWireElement(doc)
 	if err := wire.SetSource(step1core.PortRef{}); err == nil {
 		t.Errorf("SetSource(empty) should fail")
@@ -1246,13 +1380,15 @@ func TestDOMStructuralErrors(t *testing.T) {
 	factory := dom.Factory
 
 	// 类型不匹配的子元素
-	if err := root.AddTimeline(nil); err == nil {
-		t.Errorf("AddTimeline(nil) should fail")
-	}
+	requireNoError(t, "SetTimeline(nil)", root.SetTimeline(nil)) // nil 表示删除
 	track, _ := factory.CreateTrackElement(doc)
-	wrongTag := &domTimelineElement{track.(*domTrackElement).domElement} // 标签其实是 track
-	if err := root.AddTimeline(wrongTag); err == nil {
-		t.Errorf("AddTimeline(track) should fail")
+	wrongTimeline := &domTimelineElement{track.(*domTrackElement).domElement} // 标签其实是 track
+	if err := root.SetTimeline(wrongTimeline); err == nil {
+		t.Errorf("SetTimeline(track) should fail")
+	}
+	wrongChannels := &domChannelsElement{track.(*domTrackElement).domElement} // 标签其实是 track
+	if err := root.SetChannels(wrongChannels); err == nil {
+		t.Errorf("SetChannels(track) should fail")
 	}
 
 	// 根元素必须是 work
@@ -1383,7 +1519,9 @@ func TestDOMLoadIntoExistingDocument(t *testing.T) {
 	requireNoError(t, "Load 2", dom.Load(small))
 	root := requireRoot(t, dom)
 	requireEqual(t, "title(2)", root.GetHead().GetTitle(), "small")
-	requireEqual(t, "len(timeline)", len(root.ListTimelines()), 0)
+	if root.GetTimeline() != nil {
+		t.Errorf("GetTimeline() = %v, want nil", root.GetTimeline())
+	}
 	requireEqual(t, "len(children)", len(root.ListChildren()), 1)
 }
 

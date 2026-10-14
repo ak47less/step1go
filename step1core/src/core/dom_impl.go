@@ -414,6 +414,16 @@ func innerUnwrapElement(element step1core.DOMElement) (*domElement, bool) {
 			return nil, false
 		}
 		return item.domElement, true
+	case *domChannelsElement:
+		if item == nil {
+			return nil, false
+		}
+		return item.domElement, true
+	case *domChannelElement:
+		if item == nil {
+			return nil, false
+		}
+		return item.domElement, true
 	case *domTracksElement:
 		if item == nil {
 			return nil, false
@@ -593,6 +603,10 @@ func innerNewWrapper(node *domElement) step1core.DOMElement {
 		return &domMetaElement{node}
 	case step1core.TagTimeline:
 		return &domTimelineElement{node}
+	case step1core.TagChannels:
+		return &domChannelsElement{node}
+	case step1core.TagChannel:
+		return &domChannelElement{node}
 	case step1core.TagTracks:
 		return &domTracksElement{node}
 	case step1core.TagTrack:
@@ -629,31 +643,39 @@ func innerAttributeFullName(attr *step1core.DOMAttribute) string {
 	return attr.Name
 }
 
-// innerRankWork 给出 work 子元素在 xs:sequence 中的位置.
+// innerRankWork 给出 work 子元素的规范顺序.
+//
+// xsd 在 work 上用 xs:all, 顺序本来不受约束; 这里仍然按文档中的惯用顺序
+// (head, timeline, channels, tracks, devices) 写出, 以便输出稳定.
 func innerRankWork(tag string) int {
 	switch tag {
 	case step1core.TagHead:
 		return 0
 	case step1core.TagTimeline:
 		return 1
-	case step1core.TagTracks:
+	case step1core.TagChannels:
 		return 2
-	case step1core.TagDevices:
+	case step1core.TagTracks:
 		return 3
-	default:
+	case step1core.TagDevices:
 		return 4
+	default:
+		return 5
 	}
 }
 
-// innerRankHead 给出 head 子元素在 xs:sequence 中的位置.
+// innerRankHead 给出 head 子元素在 xs:sequence 中的位置:
+// title, meta*, description.
 func innerRankHead(tag string) int {
 	switch tag {
 	case step1core.TagTitle:
 		return 0
 	case step1core.TagMeta:
 		return 1
-	default:
+	case step1core.TagDescription:
 		return 2
+	default:
+		return 3
 	}
 }
 
@@ -704,14 +726,26 @@ func (inst *domWorkElement) SetHead(head step1core.HeadElement) error {
 	return innerSetSingleChild(inst.domElement, head, step1core.TagHead, innerRankWork)
 }
 
-// ListTimelines implements [step1core.WorkElement].
-func (inst *domWorkElement) ListTimelines() []step1core.TimelineElement {
-	return innerChildrenAs[step1core.TimelineElement](inst.domElement, step1core.TagTimeline)
+// GetTimeline implements [step1core.WorkElement].
+func (inst *domWorkElement) GetTimeline() step1core.TimelineElement {
+	return innerChildAs[step1core.TimelineElement](inst.domElement, step1core.TagTimeline)
 }
 
-// AddTimeline implements [step1core.WorkElement].
-func (inst *domWorkElement) AddTimeline(item step1core.TimelineElement) error {
-	return innerAppendTypedChild(inst.domElement, item, step1core.TagTimeline)
+// SetTimeline implements [step1core.WorkElement].
+//
+// timeline 在 work 下最多一个 (xs:all), nil 表示删除.
+func (inst *domWorkElement) SetTimeline(item step1core.TimelineElement) error {
+	return innerSetSingleChild(inst.domElement, item, step1core.TagTimeline, innerRankWork)
+}
+
+// GetChannels implements [step1core.WorkElement].
+func (inst *domWorkElement) GetChannels() step1core.ChannelsElement {
+	return innerChildAs[step1core.ChannelsElement](inst.domElement, step1core.TagChannels)
+}
+
+// SetChannels implements [step1core.WorkElement].
+func (inst *domWorkElement) SetChannels(channels step1core.ChannelsElement) error {
+	return innerSetSingleChild(inst.domElement, channels, step1core.TagChannels, innerRankWork)
 }
 
 // GetTracks implements [step1core.WorkElement].
@@ -755,11 +789,28 @@ func (inst *domWorkElement) FindTimeline(name step1core.NameType) (step1core.Tim
 		return nil
 	}
 
-	got := find(inst.ListTimelines())
-	if got == nil {
-		return nil, fmt.Errorf("timeline not found: %s", name)
+	top := inst.GetTimeline()
+	if top != nil {
+		if got := find([]step1core.TimelineElement{top}); got != nil {
+			return got, nil
+		}
 	}
-	return got, nil
+	return nil, fmt.Errorf("timeline not found: %s", name)
+}
+
+// FindChannel implements [step1core.WorkElement].
+func (inst *domWorkElement) FindChannel(name step1core.NameType) (step1core.ChannelElement, error) {
+
+	channels := inst.GetChannels()
+	if channels != nil {
+		for _, item := range channels.ListChannels() {
+			if item != nil && item.GetName() == name {
+				return item, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("channel not found: %s", name)
 }
 
 // FindTrack implements [step1core.WorkElement].
@@ -848,14 +899,55 @@ func (inst *domHeadElement) SetTitle(title string) error {
 	return nil
 }
 
+// GetDescription implements [step1core.HeadElement].
+func (inst *domHeadElement) GetDescription() string {
+	node := inst.innerFirstChild(step1core.TagDescription)
+	if node == nil {
+		return ""
+	}
+	return node.text
+}
+
+// SetDescription implements [step1core.HeadElement].
+//
+// description 在 head 下可选且最多一个, 传空串表示删除该元素.
+func (inst *domHeadElement) SetDescription(text string) error {
+
+	if inst == nil || inst.domElement == nil {
+		return fmt.Errorf("element is nil")
+	}
+
+	if text == "" {
+		inst.innerRemoveChildrenByTag(step1core.TagDescription)
+		return nil
+	}
+
+	node := inst.innerFirstChild(step1core.TagDescription)
+	if node == nil {
+		// 按 xs:sequence, description 写在所有 meta 之后
+		node = innerNewElement(inst.owner, inst.namespace, inst.prefix, step1core.TagDescription)
+		inst.innerInsertNode(node, innerRankHead)
+	}
+
+	node.text = text
+	return nil
+}
+
 // ListMeta implements [step1core.HeadElement].
 func (inst *domHeadElement) ListMeta() []step1core.MetaElement {
 	return innerChildrenAs[step1core.MetaElement](inst.domElement, step1core.TagMeta)
 }
 
 // AddMeta implements [step1core.HeadElement].
+//
+// 按 xs:sequence 插入到已有 meta 之后, description 之前.
 func (inst *domHeadElement) AddMeta(item step1core.MetaElement) error {
-	return innerAppendTypedChild(inst.domElement, item, step1core.TagMeta)
+	node, err := innerCheckChild(item, step1core.TagMeta)
+	if err != nil {
+		return err
+	}
+	inst.innerInsertNode(node, innerRankHead)
+	return nil
 }
 
 // FindMeta implements [step1core.HeadElement].
@@ -1002,6 +1094,68 @@ func (inst *domTimelineElement) ListTimelines() []step1core.TimelineElement {
 // AddTimeline implements [step1core.TimelineElement].
 func (inst *domTimelineElement) AddTimeline(item step1core.TimelineElement) error {
 	return innerAppendTypedChild(inst.domElement, item, step1core.TagTimeline)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// channels : ChannelsElement
+
+type domChannelsElement struct {
+	*domElement
+}
+
+// 确保实现相关接口
+var _ step1core.ChannelsElement = (*domChannelsElement)(nil)
+
+// ListChannels implements [step1core.ChannelsElement].
+func (inst *domChannelsElement) ListChannels() []step1core.ChannelElement {
+	return innerChildrenAs[step1core.ChannelElement](inst.domElement, step1core.TagChannel)
+}
+
+// AddChannel implements [step1core.ChannelsElement].
+func (inst *domChannelsElement) AddChannel(item step1core.ChannelElement) error {
+	return innerAppendTypedChild(inst.domElement, item, step1core.TagChannel)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// channel : ChannelElement (ExtensionPointType)
+
+type domChannelElement struct {
+	*domElement
+}
+
+// 确保实现相关接口
+var _ step1core.ChannelElement = (*domChannelElement)(nil)
+
+// GetName implements [step1core.ChannelElement].
+func (inst *domChannelElement) GetName() step1core.NameType {
+	return step1core.NameType(inst.innerGetAttribute(step1core.AttrName))
+}
+
+// SetName implements [step1core.ChannelElement].
+func (inst *domChannelElement) SetName(name step1core.NameType) error {
+	if err := step1core.CheckNCName(string(name)); err != nil {
+		return err
+	}
+	return inst.SetAttribute(step1core.AttrName, string(name))
+}
+
+// GetType implements [step1core.ChannelElement].
+func (inst *domChannelElement) GetType() step1core.ChannelType {
+	text := inst.innerGetAttribute(step1core.AttrType)
+	value, err := step1core.ParseChannelTypeText(text)
+	if err != nil {
+		return step1core.ChannelTypeUnknown
+	}
+	return value
+}
+
+// SetType implements [step1core.ChannelElement].
+func (inst *domChannelElement) SetType(t step1core.ChannelType) error {
+	text := step1core.FormatChannelTypeText(t)
+	if text == "" {
+		return fmt.Errorf("invalid channel type: %d", int(t))
+	}
+	return inst.SetAttribute(step1core.AttrType, text)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1588,6 +1742,24 @@ func (inst *innerDOMFactory) CreateTimelineElement(doc step1core.DOMDocument) (s
 		return nil, err
 	}
 	return innerWrapAs[step1core.TimelineElement](node)
+}
+
+// CreateChannelsElement implements [step1core.DOMFactory].
+func (inst *innerDOMFactory) CreateChannelsElement(doc step1core.DOMDocument) (step1core.ChannelsElement, error) {
+	node, err := inst.innerCreate(doc, step1core.TagChannels)
+	if err != nil {
+		return nil, err
+	}
+	return innerWrapAs[step1core.ChannelsElement](node)
+}
+
+// CreateChannelElement implements [step1core.DOMFactory].
+func (inst *innerDOMFactory) CreateChannelElement(doc step1core.DOMDocument) (step1core.ChannelElement, error) {
+	node, err := inst.innerCreate(doc, step1core.TagChannel)
+	if err != nil {
+		return nil, err
+	}
+	return innerWrapAs[step1core.ChannelElement](node)
 }
 
 // CreateTracksElement implements [step1core.DOMFactory].

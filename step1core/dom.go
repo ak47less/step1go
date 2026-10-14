@@ -19,8 +19,11 @@ import (
 //	work                                     WorkElement
 //	├── head                                 HeadElement
 //	│   ├── title                            (元素文本)
-//	│   └── meta*                            MetaElement
-//	├── timeline*                            TimelineElement (可递归嵌套)
+//	│   ├── meta*                            MetaElement
+//	│   └── description                      (元素文本)
+//	├── timeline                             TimelineElement (可递归嵌套)
+//	├── channels                             ChannelsElement
+//	│   └── channel*                         ChannelElement
 //	├── tracks                               TracksElement
 //	│   └── track*                           TrackElement
 //	│       └── slice*                       SliceElement
@@ -34,12 +37,13 @@ import (
 //
 // xsd 中的 simpleType 与 Go 类型的对应关系 (与 xsd 头部注释一致):
 //
-//	NameType        -> NameType                  (timeline / track 的名字, 以及 slice/@timeline)
+//	NameType        -> NameType                  (timeline / track / channel 的名字, 以及 slice/@timeline)
 //	PortNameType    -> PortName                  (device 的端口名)
 //	IDType          -> DeviceID                  (device/@id)
 //	OrderIDType     -> OrderID                   (work/@orderid)
 //	TrackKindType   -> TrackType                 (track/@type)
 //	SliceKindType   -> TrackType (不含 master)    (slice/@type)
+//	ChannelKindType -> ChannelType               (channel/@type, audio / midi)
 //	DeviceClassType -> DeviceClass               (device/@class)
 //	SourceRefType   -> PortRef                   (wire/@source, 形如 "设备名#端口名")
 //	MetaNameType    -> MetaName                  (meta/@name)
@@ -50,9 +54,10 @@ import (
 //	SampleTimeType  -> SampleTime                 (offset / length / chord@offset, 非负)
 //
 // 约定:
-//  1. xsd 使用 xs:sequence, 因此子元素的顺序是受约束的. typed 的 AddXxx() 方法应当把
-//     新元素插入到符合 schema 的位置, 而不是简单追加 (例如 work 的子元素顺序依次为
-//     head, timeline*, tracks, devices).
+//  1. work 的直接子元素 (head / timeline / channels / tracks / devices) 用 xs:all 约束:
+//     顺序自由, 但各自最多出现一次; work 内部其余元素仍用 xs:sequence 约束顺序
+//     (例如 head 的子元素顺序依次为 title, meta*, description), 因此 typed 的
+//     AddXxx() / SetXxx() 方法应当把新元素插入到符合 schema 的位置, 而不是简单追加.
 //  2. xsd 在 work 上还声明了若干 xs:key / xs:keyref 语义约束, 它们不能在 schema 结构里
 //     表达完整, 需要应用层保证; 见本文件末尾的 CheckWorkConstraints().
 //  3. 可选属性在接口上用指针表示 (nil 表示 XML 中没有该属性); 可选子元素用 nil 表示.
@@ -79,7 +84,10 @@ const (
 	TagHead        = "head"
 	TagTitle       = "title"
 	TagMeta        = "meta"
+	TagDescription = "description"
 	TagTimeline    = "timeline"
+	TagChannels    = "channels"
+	TagChannel     = "channel"
 	TagTracks      = "tracks"
 	TagTrack       = "track"
 	TagSlice       = "slice"
@@ -128,6 +136,23 @@ type MetaName string
 // OrderID 对应 xsd 的 OrderIDType: 由纯数字组成的工程(订单)编号.
 // 校验方法见 CheckOrderIDText().
 type OrderID string
+
+// ChannelType 对应 xsd 的 ChannelKindType: channel/@type 的取值 (audio / midi).
+//
+// 它与 TrackType 的取值风格一致, 但不含 chord / master; 由于 step1core 目前还没有
+// 独立的通道领域模型, 该枚举暂定义在 DOM 层. 文本形式的解析与格式化分别见
+// ParseChannelTypeText() / FormatChannelTypeText().
+type ChannelType int
+
+const (
+	ChannelTypeUnknown ChannelType = iota
+
+	// ChannelTypeAudio 是音频通道, 对应 channel/@type="audio".
+	ChannelTypeAudio
+
+	// ChannelTypeMIDI 是 MIDI 通道, 对应 channel/@type="midi".
+	ChannelTypeMIDI
+)
 
 // 原型文档 (docs/prototype.work.xml) 中出现过的 meta 名称.
 const (
@@ -267,6 +292,31 @@ func CheckSliceType(t TrackType) error {
 		return nil
 	default:
 		return fmt.Errorf("invalid slice type: %s", FormatTrackTypeText(t))
+	}
+}
+
+// ParseChannelTypeText 解析 xsd 的 ChannelKindType (audio / midi).
+func ParseChannelTypeText(text string) (ChannelType, error) {
+	switch strings.TrimSpace(text) {
+	case "audio":
+		return ChannelTypeAudio, nil
+	case "midi":
+		return ChannelTypeMIDI, nil
+	default:
+		return ChannelTypeUnknown, fmt.Errorf("invalid channel type: %q", text)
+	}
+}
+
+// FormatChannelTypeText 把 ChannelType 转换为 xsd 的 ChannelKindType 文本.
+// 未知类型返回空串, 调用方应当在写出之前先行判断.
+func FormatChannelTypeText(t ChannelType) string {
+	switch t {
+	case ChannelTypeAudio:
+		return "audio"
+	case ChannelTypeMIDI:
+		return "midi"
+	default:
+		return ""
 	}
 }
 
@@ -542,6 +592,10 @@ type DOMFactory interface {
 
 	CreateTimelineElement(doc DOMDocument) (TimelineElement, error)
 
+	CreateChannelsElement(doc DOMDocument) (ChannelsElement, error)
+
+	CreateChannelElement(doc DOMDocument) (ChannelElement, error)
+
 	CreateTracksElement(doc DOMDocument) (TracksElement, error)
 
 	CreateTrackElement(doc DOMDocument) (TrackElement, error)
@@ -683,8 +737,10 @@ func (inst *DOM) CheckConstraints() ([]*WorkConstraintError, error) {
 
 // WorkElement 对应 work / WorkType: 工程文档的根元素.
 //
-// 子元素顺序 (xs:sequence): head?, timeline*, tracks?, devices?;
-// 传给 SetHead / SetTracks / SetDevices 的实参为 nil 时表示删除该子元素.
+// 子元素用 xs:all 约束: head? / timeline? / channels? / tracks? / devices?,
+// 顺序自由, 但各自最多出现一次 (timeline 的子时间轴嵌套由 TimelineElement 递归表达).
+// 传给 SetHead / SetTimeline / SetChannels / SetTracks / SetDevices 的实参为 nil 时
+// 表示删除该子元素.
 type WorkElement interface {
 	DOMElement
 
@@ -696,9 +752,13 @@ type WorkElement interface {
 	GetHead() HeadElement
 	SetHead(head HeadElement) error
 
-	// ListTimelines 对应 timeline 子元素列表 (只包含直接子元素).
-	ListTimelines() []TimelineElement
-	AddTimeline(item TimelineElement) error
+	// GetTimeline 对应 timeline 子元素 (最多一个); 不存在时返回 nil.
+	GetTimeline() TimelineElement
+	SetTimeline(item TimelineElement) error
+
+	// GetChannels 对应 channels 子元素; 不存在时返回 nil.
+	GetChannels() ChannelsElement
+	SetChannels(channels ChannelsElement) error
 
 	// GetTracks 对应 tracks 子元素; 不存在时返回 nil.
 	GetTracks() TracksElement
@@ -709,22 +769,30 @@ type WorkElement interface {
 	SetDevices(devices DevicesElement) error
 
 	// 以下查找方法对应 xsd 在 work 上声明的 key / keyref:
-	// timeline/@name 全文唯一, track/@name 全文唯一, device/@name 全文唯一,
-	// device/@id 若存在则唯一. 找不到时返回错误.
+	// timeline/@name 全文唯一 (含各级子时间轴), channel/@name 全文唯一,
+	// track/@name 全文唯一, device/@name 全文唯一, device/@id 若存在则唯一.
+	// 找不到时返回错误.
 
 	FindTimeline(name NameType) (TimelineElement, error)
+	FindChannel(name NameType) (ChannelElement, error)
 	FindTrack(name NameType) (TrackElement, error)
 	FindDevice(name DeviceName) (DeviceElement, error)
 	FindDeviceByID(id DeviceID) (DeviceElement, error)
 }
 
-// HeadElement 对应 head / HeadType: title 之后可以跟任意多条 meta.
+// HeadElement 对应 head / HeadType: title, 之后是任意多条 meta, 最后是可选的一段
+// description (顺序由 xs:sequence 约束).
 type HeadElement interface {
 	DOMElement
 
 	// GetTitle / SetTitle 对应 head/title 的文本.
 	GetTitle() string
 	SetTitle(title string) error
+
+	// GetDescription / SetDescription 对应 head/description 的文本 (可选, 最多一个);
+	// 不存在时 GetDescription 返回空串, SetDescription("") 表示删除该元素.
+	GetDescription() string
+	SetDescription(text string) error
 
 	// ListMeta 返回全部 meta (对应 MetaNameKey: 同名 meta 不允许重复).
 	ListMeta() []MetaElement
@@ -772,6 +840,30 @@ type TimelineElement interface {
 
 	ListTimelines() []TimelineElement
 	AddTimeline(item TimelineElement) error
+}
+
+// ChannelsElement 对应 channels / ChannelsType: 通道集合.
+type ChannelsElement interface {
+	DOMElement
+
+	ListChannels() []ChannelElement
+	AddChannel(item ChannelElement) error
+}
+
+// ChannelElement 对应 channel / ChannelType (基于 ExtensionPointType): 一条通道,
+// 例如音频输出通道 audio_left / audio_right, MIDI 通道 midi_notes / midi_clock.
+//
+// name 与 type 都是必填 (对应 ChannelNameKey: channel/@name 全文唯一).
+// 元素本身只允许空白文本内容, 但允许插入其它命名空间的扩展子元素;
+// 通道与轨道 / 端口之间的对应关系由应用层决定.
+type ChannelElement interface {
+	DOMElement
+
+	GetName() NameType
+	SetName(name NameType) error
+
+	GetType() ChannelType
+	SetType(t ChannelType) error
 }
 
 // TracksElement 对应 tracks / TracksType: 轨道集合.
@@ -931,6 +1023,9 @@ const (
 	// WorkConstraintSliceTimelineRef : slice/@timeline 必须指向已存在的 timeline.
 	WorkConstraintSliceTimelineRef WorkConstraint = "SliceTimelineRef"
 
+	// WorkConstraintChannelNameKey : channel/@name 全文唯一.
+	WorkConstraintChannelNameKey WorkConstraint = "ChannelNameKey"
+
 	// WorkConstraintTrackNameKey : track/@name 全文唯一.
 	WorkConstraintTrackNameKey WorkConstraint = "TrackNameKey"
 
@@ -971,15 +1066,16 @@ func (inst *WorkConstraintError) Error() string {
 //
 // 检查内容:
 //
-//	TimelineNameKey  - timeline/@name 全文唯一
+//	TimelineNameKey  - timeline/@name 全文唯一 (含各级子时间轴)
 //	SliceTimelineRef - slice/@timeline 必须指向已存在的 timeline
+//	ChannelNameKey   - channel/@name 全文唯一
 //	TrackNameKey     - track/@name 全文唯一
 //	DeviceNameKey    - device/@name 全文唯一
 //	DeviceIdUnique   - device/@id 若存在则必须唯一
 //	MetaNameKey      - 同一个 head 下的 meta/@name 唯一
 //
-// 结构约束 (元素顺序与取值范围等) 由 xsd 的 xs:sequence 与 simpleType 描述,
-// 请在读写时使用 CheckNCName / ParseBPMText / CheckSliceType 等函数逐一校验.
+// 结构约束 (work 的 xs:all, 其余元素的 xs:sequence, 以及 simpleType 的取值范围)
+// 由 xsd 描述, 请在读写时使用 CheckNCName / ParseBPMText / CheckSliceType 等函数逐一校验.
 func CheckWorkConstraints(work WorkElement) []*WorkConstraintError {
 
 	list := make([]*WorkConstraintError, 0)
@@ -1015,7 +1111,10 @@ func CheckWorkConstraints(work WorkElement) []*WorkConstraintError {
 			checkTimelines(item.ListTimelines(), here+"/timeline")
 		}
 	}
-	checkTimelines(work.ListTimelines(), "work/timeline")
+	// work 下的 timeline 最多一个 (xs:all), 子时间轴的嵌套由 TimelineElement 表达
+	if top := work.GetTimeline(); top != nil {
+		checkTimelines([]TimelineElement{top}, "work/timeline")
+	}
 
 	// 2. TrackNameKey : track/@name 全文唯一
 	// 3. SliceTimelineRef : slice/@timeline 必须指向已存在的 timeline
@@ -1047,8 +1146,27 @@ func CheckWorkConstraints(work WorkElement) []*WorkConstraintError {
 		}
 	}
 
-	// 4. DeviceNameKey  : device/@name 全文唯一
-	// 5. DeviceIdUnique : device/@id 若存在则唯一
+	// 4. ChannelNameKey : channel/@name 全文唯一
+	channels := work.GetChannels()
+	if channels != nil {
+		channelIndex := make(map[NameType]string)
+		for index, item := range channels.ListChannels() {
+			if item == nil {
+				continue
+			}
+			here := fmt.Sprintf("work/channels/channel[%d]", index+1)
+			name := item.GetName()
+			old, exists := channelIndex[name]
+			if exists {
+				add(WorkConstraintChannelNameKey, here, string(name), fmt.Sprintf("通道名称重复, 已出现在 %s", old))
+			} else {
+				channelIndex[name] = here
+			}
+		}
+	}
+
+	// 5. DeviceNameKey  : device/@name 全文唯一
+	// 6. DeviceIdUnique : device/@id 若存在则唯一
 	devices := work.GetDevices()
 	if devices != nil {
 		deviceNameIndex := make(map[DeviceName]string)
@@ -1077,7 +1195,7 @@ func CheckWorkConstraints(work WorkElement) []*WorkConstraintError {
 		}
 	}
 
-	// 6. MetaNameKey : 同一个 head 下的 meta/@name 唯一
+	// 7. MetaNameKey : 同一个 head 下的 meta/@name 唯一
 	head := work.GetHead()
 	if head != nil {
 		metaIndex := make(map[MetaName]string)
