@@ -11,31 +11,31 @@ func (inst *DefaultEngineFactory) CreateEngine(cfg *step1core.EngineConfiguratio
 	var err error
 
 	logger := step1core.Log()
-	engine := new(innerDefaultEngine)
-	ec := new(step1core.EngineContext)
+	engine := new(innerDefaultEngineFacade)
+	ctx := new(step1core.EngineContext)
 	track_man := new(DefaultTrackManager)
 	ele_man := new(DefaultDeviceManager)
-	main_ef := new(MainDeviceFactory)
+	// main_ef := new(MainDeviceFactory)
 	ls := new(DefaultEngineLS)
 	life_man := new(DefaultLifeManager)
 	clock := new(DefaultClock)
 
-	ele_man.SetFactory(main_ef)
+	ele_man.Init(ctx)
 
-	ec.Configuration = cfg
-	ec.DeviceFactory = main_ef
-	ec.DeviceManager = ele_man
-	ec.DeviceRegistry = main_ef
-	ec.TrackManager = track_man
-	ec.LifeManager = life_man
-	ec.LS = ls
-	ec.Logger = logger
+	ctx.Configuration = cfg
+	ctx.DeviceManager = ele_man
+	ctx.DeviceFactory = cfg.DeviceProviders
+	ctx.DeviceRegistry = cfg.DeviceProviders
+	ctx.TrackManager = track_man
+	ctx.LifeManager = life_man
+	ctx.LS = ls
+	ctx.Logger = logger
 
-	ec.Transport = nil
-	ec.Engine = engine
-	ec.Clock = clock
+	ctx.Transport = nil
+	ctx.Engine = engine
+	ctx.Clock = clock
 
-	engine.context = ec
+	engine.context = ctx
 
 	err = engine.Init(cfg)
 	if err != nil {

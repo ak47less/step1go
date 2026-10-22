@@ -7,31 +7,30 @@ import (
 )
 
 type Engine interface {
-	Device
-
-	GetDeviceManager() DeviceManager
-
 	GetContext() *EngineContext
 
 	GetConfiguration() *EngineConfiguration
 
 	GetTransport() Transport
 
-	Init(cfg *EngineConfiguration) error
-
-	Load() error
+	GetDeviceManager() DeviceManager
 
 	Reset() error
-
-	Create() error
-
-	Destroy() error
 
 	Start() error
 
 	Stop() error
 
-	Run() error
+	Join() error
+
+	//////////////////
+
+	// Init(cfg *EngineConfiguration) error
+	// Load() error
+	// Create() error
+	// Destroy() error
+	// Run() error
+
 }
 
 type EngineFactory interface {

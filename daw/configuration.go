@@ -33,11 +33,13 @@ type DeviceConfig struct {
 }
 
 type EngineConfiguration struct {
-	Audio AudioConfig `json:"audio"`
+	DeviceProviders DeviceProviderManager
 
-	MIDI MidiConfig `json:"midi"`
+	DOM *DOM
 
-	Devices []*DeviceConfig `json:"devices"`
+	MetaDefault map[string]string
+	MetaFinal   map[string]string
+	MetaDoc     map[string]string
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -22,6 +22,8 @@ type EngineContext struct {
 
 	Wires []*Wire
 
+	Channels []*Channel
+
 	// 以下接口由 factory 创建
 
 	DeviceFactory  DeviceFactory // the main Device factory
@@ -37,16 +39,4 @@ type EngineContext struct {
 	Clock     Clock
 	Engine    Engine
 	Transport Transport
-}
-
-type Bus struct {
-	Context *EngineContext
-
-	Current TimePoint
-
-	Router Router
-
-	Audio *AudioBuffer
-
-	MIDI *MidiBuffer
 }

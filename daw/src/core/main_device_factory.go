@@ -168,6 +168,6 @@ func (inst *MainDeviceFactory) ListClasses() []step1core.DeviceClass {
 	return classes
 }
 
-func (inst *MainDeviceFactory) _impl() (step1core.DeviceFactory, step1core.DeviceRegistry) {
-	return inst, inst
+func (inst *MainDeviceFactory) _impl() (step1core.DeviceFactory, step1core.DeviceRegistry, step1core.DeviceProviderManager) {
+	return inst, inst, inst
 }

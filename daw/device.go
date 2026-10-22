@@ -101,5 +101,14 @@ type DeviceRegistry interface {
 	Register(provider DeviceProvider)
 }
 
+type DeviceProviderManager interface {
+
+	// DeviceManager
+
+	DeviceRegistry
+
+	DeviceFactory
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // EOF

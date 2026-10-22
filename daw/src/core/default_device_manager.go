@@ -16,7 +16,7 @@ import (
 type DefaultDeviceManager struct {
 	mutex sync.RWMutex
 
-	factory step1core.DeviceFactory
+	context *step1core.EngineContext
 
 	table map[step1core.DeviceID]*step1core.DeviceInfo
 	cache []step1core.Device
@@ -121,9 +121,11 @@ func (inst *DefaultDeviceManager) LoadDevice(ei *step1core.DeviceInfo) (step1cor
 	}
 
 	Device := ei.Device
+	ctx := inst.context
+
 	if Device == nil {
 		// 创建 Device
-		factory := inst.factory
+		factory := ctx.DeviceFactory
 		if factory == nil {
 			return nil, fmt.Errorf("Device factory is nil, id: %s", id)
 		}
@@ -153,20 +155,17 @@ func (inst *DefaultDeviceManager) LoadDevice(ei *step1core.DeviceInfo) (step1cor
 	return Device, nil
 }
 
-// SetFactory 设置用于创建 Device 的工厂.
-//
-// 由引擎装配阶段调用; 参数为 nil 时忽略本次设置.
-func (inst *DefaultDeviceManager) SetFactory(factory step1core.DeviceFactory) {
+func (inst *DefaultDeviceManager) Init(ctx *step1core.EngineContext) error {
 
-	if factory == nil {
-		step1core.Log().Error("Device factory is nil, ignore")
-		return
+	if ctx == nil {
+		return fmt.Errorf("Device factory is nil, ignore")
 	}
 
 	inst.mutex.Lock()
 	defer inst.mutex.Unlock()
 
-	inst.factory = factory
+	inst.context = ctx
+	return nil
 }
 
 // Clear 移除所有已经加载的 Device(工厂设置保持不变).
