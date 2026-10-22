@@ -1004,6 +1004,301 @@ func TestToneSetBuilderReset(t *testing.T) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// ChordMode
+
+func TestChordModeValues(t *testing.T) {
+
+	cases := []struct {
+		name string
+		mode ChordMode
+		want string
+	}{
+		{name: "mock", mode: ChordModeMock, want: "mock"},
+		{name: "major", mode: ChordModeMaj, want: "M"},
+		{name: "minor", mode: ChordModeMin, want: "m"},
+		{name: "augmented", mode: ChordModeAug, want: "aug"},
+		{name: "diminished", mode: ChordModeDim, want: "dim"},
+		{name: "sus2", mode: ChordModeSus2, want: "sus2"},
+		{name: "sus4", mode: ChordModeSus4, want: "sus4"},
+		{name: "power", mode: ChordMode5, want: "5"},
+		{name: "major-6", mode: ChordModeM6, want: "M6"},
+		{name: "minor-6", mode: ChordModeMin6, want: "min6"},
+		{name: "6-9", mode: ChordMode6p9, want: "6/9"},
+		{name: "minor-6-9", mode: ChordModeM6p9, want: "m6/9"},
+		{name: "add9", mode: ChordModeAdd9, want: "add9"},
+		{name: "minor-add9", mode: ChordModeMinAdd9, want: "madd9"},
+		{name: "major-7", mode: ChordModeMaj7, want: "M7"},
+		{name: "minor-7", mode: ChordModeMin7, want: "m7"},
+		{name: "dominant-7", mode: ChordMode7, want: "7"},
+		{name: "half-diminished-7", mode: ChordModeM7b5, want: "m7b5"},
+		{name: "diminished-7", mode: ChordModeDim7, want: "dim7"},
+		{name: "augmented-major-7", mode: ChordModePM7, want: "+M7"},
+		{name: "augmented-7", mode: ChordModeP7, want: "+7"},
+		{name: "7sus4", mode: ChordMode7sus4, want: "7sus4"},
+		{name: "7b5", mode: ChordMode7b5, want: "7b5"},
+		{name: "minor-major-7", mode: ChordModeMinMaj7, want: "mM7"},
+		{name: "major-7-sharp-5", mode: ChordModeM7s5, want: "M7#5"},
+		{name: "7-sharp-5", mode: ChordMode7s5, want: "7#5"},
+		{name: "7-flat-9", mode: ChordMode7b9, want: "7b9"},
+		{name: "7-sharp-9", mode: ChordMode7s9, want: "7#9"},
+		{name: "9", mode: ChordMode9, want: "9"},
+		{name: "major-9", mode: ChordModeMaj9, want: "maj9"},
+		{name: "minor-9", mode: ChordModeMin9, want: "m9"},
+		{name: "9-sharp-5", mode: ChordModeM9s5, want: "9#5"},
+		{name: "minor-major-9", mode: ChordModeMinMaj9, want: "mM9"},
+		{name: "9-flat-5", mode: ChordMode9b5, want: "9b5"},
+		{name: "9sus4", mode: ChordMode9sus4, want: "9sus4"},
+		{name: "11", mode: ChordMode11, want: "11"},
+		{name: "minor-11", mode: ChordModeMin11, want: "m11"},
+		{name: "major-11", mode: ChordModeMaj11, want: "maj11"},
+		{name: "7-sharp-11", mode: ChordMode7s11, want: "7#11"},
+		{name: "9-sharp-11", mode: ChordMode9s11, want: "9#11"},
+		{name: "major-7-sharp-11", mode: ChordModeM7s11, want: "M7#11"},
+		{name: "13", mode: ChordMode13, want: "13"},
+		{name: "major-13", mode: ChordModeMaj13, want: "maj13"},
+		{name: "minor-13", mode: ChordModeMin13, want: "m13"},
+		{name: "13sus4", mode: ChordMode13sus4, want: "13sus4"},
+		{name: "7-flat-13", mode: ChordMode7b13, want: "7b13"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := string(c.mode); got != c.want {
+				t.Errorf("ChordMode = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestChordModeAliases(t *testing.T) {
+
+	cases := []struct {
+		name string
+		got  ChordMode
+		want ChordMode
+	}{
+		{name: "major", got: ChordModeMajor, want: ChordModeMaj},
+		{name: "minor", got: ChordModeMinor, want: ChordModeMin},
+		{name: "power", got: ChordModePower, want: ChordMode5},
+		{name: "major-6", got: ChordModeMaj6, want: ChordModeM6},
+		{name: "minor-7-flat-5", got: ChordModeMin7b5, want: ChordModeM7b5},
+		{name: "augmented-7", got: ChordModeAug7, want: ChordModeP7},
+		{name: "augmented-major-7", got: ChordModeAugMaj7, want: ChordModePM7},
+		{name: "major-6-9", got: ChordModeMaj6p9, want: ChordMode6p9},
+		{name: "minor-6-9", got: ChordModeMin6p9, want: ChordModeM6p9},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.got != c.want {
+				t.Errorf("alias = %q, want %q", c.got, c.want)
+			}
+		})
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ChordBuilder
+
+func TestChordBuilderBuildTemplate(t *testing.T) {
+
+	cases := []struct {
+		name string
+		mode ChordMode
+		want []int
+	}{
+		{name: "major", mode: ChordModeMaj, want: []int{0, 4, 7}},
+		{name: "minor", mode: ChordModeMin, want: []int{0, 3, 7}},
+		{name: "augmented", mode: ChordModeAug, want: []int{0, 4, 8}},
+		{name: "diminished", mode: ChordModeDim, want: []int{0, 3, 6}},
+		{name: "sus2", mode: ChordModeSus2, want: []int{0, 2, 7}},
+		{name: "sus4", mode: ChordModeSus4, want: []int{0, 5, 7}},
+		{name: "power", mode: ChordMode5, want: []int{0, 7}},
+		{name: "major-6", mode: ChordModeM6, want: []int{0, 4, 7, 9}},
+		{name: "minor-6", mode: ChordModeMin6, want: []int{0, 3, 7, 9}},
+		{name: "6-9", mode: ChordMode6p9, want: []int{0, 4, 7, 9, 14}},
+		{name: "minor-6-9", mode: ChordModeM6p9, want: []int{0, 3, 7, 9, 14}},
+		{name: "add9", mode: ChordModeAdd9, want: []int{0, 4, 7, 14}},
+		{name: "minor-add9", mode: ChordModeMinAdd9, want: []int{0, 3, 7, 14}},
+		{name: "major-7", mode: ChordModeMaj7, want: []int{0, 4, 7, 11}},
+		{name: "minor-7", mode: ChordModeMin7, want: []int{0, 3, 7, 10}},
+		{name: "dominant-7", mode: ChordMode7, want: []int{0, 4, 7, 10}},
+		{name: "half-diminished-7", mode: ChordModeM7b5, want: []int{0, 3, 6, 10}},
+		{name: "diminished-7", mode: ChordModeDim7, want: []int{0, 3, 6, 9}},
+		{name: "augmented-major-7", mode: ChordModePM7, want: []int{0, 4, 8, 11}},
+		{name: "augmented-7", mode: ChordModeP7, want: []int{0, 4, 8, 10}},
+		{name: "7sus4", mode: ChordMode7sus4, want: []int{0, 5, 7, 10}},
+		{name: "7b5", mode: ChordMode7b5, want: []int{0, 4, 6, 10}},
+		{name: "minor-major-7", mode: ChordModeMinMaj7, want: []int{0, 3, 7, 11}},
+		{name: "major-7-sharp-5", mode: ChordModeM7s5, want: []int{0, 4, 8, 11}},
+		{name: "7-sharp-5", mode: ChordMode7s5, want: []int{0, 4, 8, 10}},
+		{name: "7-flat-9", mode: ChordMode7b9, want: []int{0, 4, 7, 10, 13}},
+		{name: "7-sharp-9", mode: ChordMode7s9, want: []int{0, 4, 7, 10, 15}},
+		{name: "9", mode: ChordMode9, want: []int{0, 4, 7, 10, 14}},
+		{name: "major-9", mode: ChordModeMaj9, want: []int{0, 4, 7, 11, 14}},
+		{name: "minor-9", mode: ChordModeMin9, want: []int{0, 3, 7, 10, 14}},
+		{name: "9-sharp-5", mode: ChordModeM9s5, want: []int{0, 4, 8, 10, 14}},
+		{name: "minor-major-9", mode: ChordModeMinMaj9, want: []int{0, 3, 7, 11, 14}},
+		{name: "9-flat-5", mode: ChordMode9b5, want: []int{0, 4, 6, 10, 14}},
+		{name: "9sus4", mode: ChordMode9sus4, want: []int{0, 5, 7, 10, 14}},
+		{name: "11", mode: ChordMode11, want: []int{0, 4, 7, 10, 14, 17}},
+		{name: "minor-11", mode: ChordModeMin11, want: []int{0, 3, 7, 10, 14, 17}},
+		{name: "major-11", mode: ChordModeMaj11, want: []int{0, 4, 7, 11, 14, 17}},
+		{name: "7-sharp-11", mode: ChordMode7s11, want: []int{0, 4, 7, 10, 18}},
+		{name: "9-sharp-11", mode: ChordMode9s11, want: []int{0, 4, 7, 10, 14, 18}},
+		{name: "major-7-sharp-11", mode: ChordModeM7s11, want: []int{0, 4, 7, 11, 18}},
+		{name: "13", mode: ChordMode13, want: []int{0, 4, 7, 10, 14, 21}},
+		{name: "major-13", mode: ChordModeMaj13, want: []int{0, 4, 7, 11, 14, 21}},
+		{name: "minor-13", mode: ChordModeMin13, want: []int{0, 3, 7, 10, 14, 21}},
+		{name: "13sus4", mode: ChordMode13sus4, want: []int{0, 5, 7, 10, 14, 21}},
+		{name: "7-flat-13", mode: ChordMode7b13, want: []int{0, 4, 7, 10, 20}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := new(ChordBuilder).SetMode(c.mode).BuildTemplate()
+			if got == nil {
+				t.Fatalf("BuildTemplate(%q) = nil", c.mode)
+			}
+			if got.Mode != c.mode {
+				t.Errorf("Mode = %q, want %q", got.Mode, c.mode)
+			}
+			if len(got.all) != len(c.want) {
+				t.Fatalf("len(all) = %d, want %d", len(got.all), len(c.want))
+			}
+			if got.base != got.all[0] {
+				t.Errorf("base should be the chord root")
+			}
+
+			for i, interval := range c.want {
+				item := got.all[i]
+				wantNumber := ToneNumber(interval)
+				if item.Number != wantNumber {
+					t.Errorf("all[%d].Number = %d, want %d", i, int(item.Number), interval)
+				}
+				if item.Name != wantNumber.Name() {
+					t.Errorf("all[%d].Name = %q, want %q", i, item.Name, wantNumber.Name())
+				}
+				if item.Offset != int8(interval) {
+					t.Errorf("all[%d].Offset = %d, want %d", i, int(item.Offset), interval)
+				}
+				if item.Base != got.base {
+					t.Errorf("all[%d].Base should point to the chord root", i)
+				}
+			}
+		})
+	}
+
+	t.Run("default-major", func(t *testing.T) {
+		got := new(ChordBuilder).BuildTemplate()
+		if got.Mode != ChordModeMaj {
+			t.Errorf("Mode = %q, want %q", got.Mode, ChordModeMaj)
+		}
+		if len(got.all) != 3 {
+			t.Errorf("len(all) = %d, want 3", len(got.all))
+		}
+	})
+
+	t.Run("nil-builder", func(t *testing.T) {
+		var builder *ChordBuilder
+		got := builder.BuildTemplate()
+		if got == nil || got.Mode != ChordModeMaj || len(got.all) != 3 {
+			t.Errorf("(*ChordBuilder)(nil).BuildTemplate() should build a major triad")
+		}
+	})
+
+	t.Run("unknown-mode", func(t *testing.T) {
+		mode := ChordMode("unknown")
+		got := new(ChordBuilder).SetMode(mode).BuildTemplate()
+		if got.Mode != mode {
+			t.Errorf("Mode = %q, want %q", got.Mode, mode)
+		}
+		if got.base != nil || len(got.all) != 0 {
+			t.Errorf("unknown mode should build an empty template")
+		}
+	})
+
+	t.Run("fresh-template", func(t *testing.T) {
+		builder := new(ChordBuilder).SetMode(ChordModeMaj7)
+		first := builder.BuildTemplate()
+		second := builder.BuildTemplate()
+		if first == second {
+			t.Errorf("BuildTemplate should allocate a new template each time")
+		}
+		if len(first.all) == 0 || &first.all[0] == &second.all[0] {
+			t.Errorf("templates should not share tone storage")
+		}
+	})
+}
+
+func TestChordBuilderBuildInstance(t *testing.T) {
+
+	t.Run("default", func(t *testing.T) {
+		got := new(ChordBuilder).BuildInstance()
+		if got == nil {
+			t.Fatalf("BuildInstance() = nil")
+		}
+		if got.Template.Mode != ChordModeMaj {
+			t.Errorf("Template.Mode = %q, want %q", got.Template.Mode, ChordModeMaj)
+		}
+		if got.Root.Number != ToneNumberC || got.Root.Name != ToneNameC {
+			t.Errorf("Root = (%d, %q), want (0, \"C\")", int(got.Root.Number), got.Root.Name)
+		}
+		if got.Root.Base != &got.Root || got.Root.Offset != 0 {
+			t.Errorf("Root should be normalized as its own base")
+		}
+	})
+
+	t.Run("configured", func(t *testing.T) {
+		builder := new(ChordBuilder)
+		if got := builder.SetMode(ChordModeMin7); got != builder {
+			t.Errorf("SetMode() should return the builder")
+		}
+		if got := builder.SetRoot(Tone{Number: ToneNumberD, Name: ToneNameB}); got != builder {
+			t.Errorf("SetRoot() should return the builder")
+		}
+
+		got := builder.BuildInstance()
+		if got.Template.Mode != ChordModeMin7 {
+			t.Errorf("Template.Mode = %q, want %q", got.Template.Mode, ChordModeMin7)
+		}
+		if got.Root.Number != ToneNumberD || got.Root.Name != ToneNameD {
+			t.Errorf("Root = (%d, %q), want (2, \"D\")", int(got.Root.Number), got.Root.Name)
+		}
+		if got.Root.Base != &got.Root || got.Root.Offset != 0 {
+			t.Errorf("Root should be normalized as its own base")
+		}
+
+		want := []ToneNumber{ToneNumberC, ToneNumberDS, ToneNumberG, ToneNumberAS}
+		if len(got.Template.all) != len(want) {
+			t.Fatalf("len(Template.all) = %d, want %d", len(got.Template.all), len(want))
+		}
+		for i, number := range want {
+			if got.Template.all[i].Number != number {
+				t.Errorf("Template.all[%d].Number = %d, want %d", i, int(got.Template.all[i].Number), int(number))
+			}
+		}
+	})
+
+	t.Run("nil-builder", func(t *testing.T) {
+		var builder *ChordBuilder
+		got := builder.BuildInstance()
+		if got == nil || got.Template.Mode != ChordModeMaj {
+			t.Errorf("(*ChordBuilder)(nil).BuildInstance() should build a major triad")
+		}
+	})
+
+	t.Run("fresh-instance", func(t *testing.T) {
+		builder := new(ChordBuilder).SetMode(ChordModeMaj)
+		first := builder.BuildInstance()
+		second := builder.BuildInstance()
+		if first == second || first == nil || second == nil {
+			t.Errorf("BuildInstance should allocate a new instance each time")
+		}
+	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ScaleBuilder
 
 func TestScaleModeValues(t *testing.T) {

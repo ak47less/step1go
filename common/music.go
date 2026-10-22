@@ -496,49 +496,79 @@ func (num PitchNumber) GetInfo(dst *PitchInfo) *PitchInfo {
 type ChordMode string
 
 const (
-	ChordModeMock ChordMode = "mock"
+	ChordModeMock ChordMode = "mock" // 模拟和弦（占位）
 
-	// 3
+	// 三和弦与六和弦
 
-	ChordModeMaj  ChordMode = "M"
-	ChordModeMin  ChordMode = "m"
-	ChordModeAug  ChordMode = "aug"
-	ChordModeDim  ChordMode = "dim"
-	ChordModeSus2 ChordMode = "sus2"
-	ChordModeSus4 ChordMode = "sus4"
-	ChordMode5    ChordMode = "5"
-	ChordModeM6   ChordMode = "M6"
-	ChordModeMin6 ChordMode = "min6"
-	ChordMode6p9  ChordMode = "6/9"
-	ChordModeM6p9 ChordMode = "m6/9"
+	ChordModeMaj     ChordMode = "M"     // 大三和弦
+	ChordModeMin     ChordMode = "m"     // 小三和弦
+	ChordModeAug     ChordMode = "aug"   // 增三和弦
+	ChordModeDim     ChordMode = "dim"   // 减三和弦
+	ChordModeSus2    ChordMode = "sus2"  // 挂二和弦
+	ChordModeSus4    ChordMode = "sus4"  // 挂四和弦
+	ChordMode5       ChordMode = "5"     // 强力和弦（纯五度）
+	ChordModeM6      ChordMode = "M6"    // 大六和弦
+	ChordModeMin6    ChordMode = "min6"  // 小六和弦
+	ChordMode6p9     ChordMode = "6/9"   // 六九和弦
+	ChordModeM6p9    ChordMode = "m6/9"  // 小六九和弦
+	ChordModeAdd9    ChordMode = "add9"  // 加九和弦
+	ChordModeMinAdd9 ChordMode = "madd9" // 小加九和弦
 
-	// 7
+	// 七和弦
 
-	ChordModeMaj7  ChordMode = "M7"
-	ChordModeMin7  ChordMode = "m7"
-	ChordMode7     ChordMode = "7"
-	ChordModeM7b5  ChordMode = "m7b5"
-	ChordModeDim7  ChordMode = "dim7"
-	ChordModePM7   ChordMode = "+M7"
-	ChordModeP7    ChordMode = "+7"
-	ChordMode7sus4 ChordMode = "7sus4"
-	ChordMode7b5   ChordMode = "7b5"
+	ChordModeMaj7    ChordMode = "M7"    // 大七和弦
+	ChordModeMin7    ChordMode = "m7"    // 小七和弦
+	ChordMode7       ChordMode = "7"     // 属七和弦
+	ChordModeM7b5    ChordMode = "m7b5"  // 半减七和弦
+	ChordModeDim7    ChordMode = "dim7"  // 减七和弦
+	ChordModePM7     ChordMode = "+M7"   // 增大七和弦
+	ChordModeP7      ChordMode = "+7"    // 增七和弦
+	ChordMode7sus4   ChordMode = "7sus4" // 属七挂四和弦
+	ChordMode7b5     ChordMode = "7b5"   // 属七降五和弦
+	ChordModeMinMaj7 ChordMode = "mM7"   // 小大七和弦
+	ChordModeM7s5    ChordMode = "M7#5"  // 大七升五和弦
+	ChordMode7s5     ChordMode = "7#5"   // 属七升五和弦
+	ChordMode7b9     ChordMode = "7b9"   // 属七降九和弦
+	ChordMode7s9     ChordMode = "7#9"   // 属七升九和弦
 
-	// 9
+	// 九和弦
 
-	ChordMode9    ChordMode = "9"
-	ChordModeMaj9 ChordMode = "maj9"
-	ChordModeMin9 ChordMode = "m9"
-	ChordModeM9s5 ChordMode = "9#5"
+	ChordMode9       ChordMode = "9"     // 属九和弦
+	ChordModeMaj9    ChordMode = "maj9"  // 大九和弦
+	ChordModeMin9    ChordMode = "m9"    // 小九和弦
+	ChordModeM9s5    ChordMode = "9#5"   // 属九升五和弦
+	ChordModeMinMaj9 ChordMode = "mM9"   // 小大九和弦
+	ChordMode9b5     ChordMode = "9b5"   // 属九降五和弦
+	ChordMode9sus4   ChordMode = "9sus4" // 属九挂四和弦
 
-	// 11
+	// 十一和弦
 
-	ChordMode11    ChordMode = "11"
-	ChordModeMin11 ChordMode = "m11"
-	ChordModeMaj11 ChordMode = "maj11"
+	ChordMode11    ChordMode = "11"    // 属十一和弦
+	ChordModeMin11 ChordMode = "m11"   // 小十一和弦
+	ChordModeMaj11 ChordMode = "maj11" // 大十一和弦
+	ChordMode7s11  ChordMode = "7#11"  // 属七升十一和弦
+	ChordMode9s11  ChordMode = "9#11"  // 属九升十一和弦
+	ChordModeM7s11 ChordMode = "M7#11" // 大七升十一和弦
 
-	// 13
+	// 十三和弦
 
+	ChordMode13     ChordMode = "13"     // 属十三和弦
+	ChordModeMaj13  ChordMode = "maj13"  // 大十三和弦
+	ChordModeMin13  ChordMode = "m13"    // 小十三和弦
+	ChordMode13sus4 ChordMode = "13sus4" // 属十三挂四和弦
+	ChordMode7b13   ChordMode = "7b13"   // 属七降十三和弦
+
+	// 兼容别名
+
+	ChordModeMajor   = ChordModeMaj  // 大三和弦（ChordModeMaj 的别名）
+	ChordModeMinor   = ChordModeMin  // 小三和弦（ChordModeMin 的别名）
+	ChordModePower   = ChordMode5    // 强力和弦（ChordMode5 的别名）
+	ChordModeMaj6    = ChordModeM6   // 大六和弦（ChordModeM6 的别名）
+	ChordModeMin7b5  = ChordModeM7b5 // 半减七和弦（ChordModeM7b5 的别名）
+	ChordModeAug7    = ChordModeP7   // 增七和弦（ChordModeP7 的别名）
+	ChordModeAugMaj7 = ChordModePM7  // 增大七和弦（ChordModePM7 的别名）
+	ChordModeMaj6p9  = ChordMode6p9  // 六九和弦（ChordMode6p9 的别名）
+	ChordModeMin6p9  = ChordModeM6p9 // 小六九和弦（ChordModeM6p9 的别名）
 )
 
 type ChordTemplate struct {
@@ -550,6 +580,165 @@ type ChordTemplate struct {
 type ChordInstance struct {
 	Template ChordTemplate // 模板
 	Root     Tone          // 根音
+}
+
+//--------------------------------//
+// ChordBuilder                   //
+//--------------------------------//
+
+type ChordBuilder struct {
+	mode ChordMode
+	root Tone
+}
+
+func (inst *ChordBuilder) BuildTemplate() *ChordTemplate {
+
+	dst := new(ChordTemplate)
+
+	mode := ChordModeMaj
+	if inst != nil && inst.mode != "" {
+		mode = inst.mode
+	}
+
+	dst.Mode = mode
+
+	builder := new(ToneSetBuilder)
+	intervals := chordIntervals(mode)
+	dst.ToneSet = *builder.SetPattern(buildIntervalPattern(intervals)).Build(nil)
+
+	return dst
+}
+
+func (inst *ChordBuilder) BuildInstance() *ChordInstance {
+
+	dst := new(ChordInstance)
+
+	dst.Template = *inst.BuildTemplate()
+
+	var root Tone
+	if inst != nil {
+		root = inst.root
+	}
+	root.Name = root.Number.Name()
+	root.Offset = 0
+	dst.Root = root
+	dst.Root.Base = &dst.Root
+
+	return dst
+}
+
+// SetMode 设置要构建的和弦类型。
+func (inst *ChordBuilder) SetMode(mode ChordMode) *ChordBuilder {
+	if inst != nil {
+		inst.mode = mode
+	}
+	return inst
+}
+
+// SetRoot 设置和弦实例的根音。
+func (inst *ChordBuilder) SetRoot(root Tone) *ChordBuilder {
+	if inst != nil {
+		inst.root = root
+	}
+	return inst
+}
+
+// chordIntervals 返回各和弦相对根音的半音间隔。
+func chordIntervals(mode ChordMode) []int {
+	switch mode {
+	case ChordModeMaj:
+		return []int{0, 4, 7}
+	case ChordModeMin:
+		return []int{0, 3, 7}
+	case ChordModeAug:
+		return []int{0, 4, 8}
+	case ChordModeDim:
+		return []int{0, 3, 6}
+	case ChordModeSus2:
+		return []int{0, 2, 7}
+	case ChordModeSus4:
+		return []int{0, 5, 7}
+	case ChordMode5:
+		return []int{0, 7}
+	case ChordModeM6:
+		return []int{0, 4, 7, 9}
+	case ChordModeMin6:
+		return []int{0, 3, 7, 9}
+	case ChordMode6p9:
+		return []int{0, 4, 7, 9, 14}
+	case ChordModeM6p9:
+		return []int{0, 3, 7, 9, 14}
+	case ChordModeAdd9:
+		return []int{0, 4, 7, 14}
+	case ChordModeMinAdd9:
+		return []int{0, 3, 7, 14}
+	case ChordModeMaj7:
+		return []int{0, 4, 7, 11}
+	case ChordModeMin7:
+		return []int{0, 3, 7, 10}
+	case ChordMode7:
+		return []int{0, 4, 7, 10}
+	case ChordModeM7b5:
+		return []int{0, 3, 6, 10}
+	case ChordModeDim7:
+		return []int{0, 3, 6, 9}
+	case ChordModePM7:
+		return []int{0, 4, 8, 11}
+	case ChordModeP7:
+		return []int{0, 4, 8, 10}
+	case ChordMode7sus4:
+		return []int{0, 5, 7, 10}
+	case ChordMode7b5:
+		return []int{0, 4, 6, 10}
+	case ChordModeMinMaj7:
+		return []int{0, 3, 7, 11}
+	case ChordModeM7s5:
+		return []int{0, 4, 8, 11}
+	case ChordMode7s5:
+		return []int{0, 4, 8, 10}
+	case ChordMode7b9:
+		return []int{0, 4, 7, 10, 13}
+	case ChordMode7s9:
+		return []int{0, 4, 7, 10, 15}
+	case ChordMode9:
+		return []int{0, 4, 7, 10, 14}
+	case ChordModeMaj9:
+		return []int{0, 4, 7, 11, 14}
+	case ChordModeMin9:
+		return []int{0, 3, 7, 10, 14}
+	case ChordModeM9s5:
+		return []int{0, 4, 8, 10, 14}
+	case ChordModeMinMaj9:
+		return []int{0, 3, 7, 11, 14}
+	case ChordMode9b5:
+		return []int{0, 4, 6, 10, 14}
+	case ChordMode9sus4:
+		return []int{0, 5, 7, 10, 14}
+	case ChordMode11:
+		return []int{0, 4, 7, 10, 14, 17}
+	case ChordModeMin11:
+		return []int{0, 3, 7, 10, 14, 17}
+	case ChordModeMaj11:
+		return []int{0, 4, 7, 11, 14, 17}
+	case ChordMode7s11:
+		return []int{0, 4, 7, 10, 18}
+	case ChordMode9s11:
+		return []int{0, 4, 7, 10, 14, 18}
+	case ChordModeM7s11:
+		return []int{0, 4, 7, 11, 18}
+	case ChordMode13:
+		return []int{0, 4, 7, 10, 14, 21}
+	case ChordModeMaj13:
+		return []int{0, 4, 7, 11, 14, 21}
+	case ChordModeMin13:
+		return []int{0, 3, 7, 10, 14, 21}
+	case ChordMode13sus4:
+		return []int{0, 5, 7, 10, 14, 21}
+	case ChordMode7b13:
+		return []int{0, 4, 7, 10, 20}
+	default:
+		return nil
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -679,7 +868,11 @@ func scaleIntervals(mode ScaleMode) []int {
 
 // buildScalePattern 将半音间隔转换成 ToneSetBuilder 使用的点位模式。
 func buildScalePattern(mode ScaleMode) string {
-	intervals := scaleIntervals(mode)
+	return buildIntervalPattern(scaleIntervals(mode))
+}
+
+// buildIntervalPattern 将半音间隔转换成 ToneSetBuilder 使用的点位模式。
+func buildIntervalPattern(intervals []int) string {
 	if len(intervals) == 0 {
 		return ""
 	}
