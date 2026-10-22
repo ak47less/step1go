@@ -1,5 +1,10 @@
 package common
 
+import (
+	"math"
+	"strconv"
+)
+
 /*
 MIDI-Key-Map:
 
@@ -462,6 +467,7 @@ type PitchInfo struct {
 	Number    PitchNumber
 	Name      PitchName
 	Group     PitchGroup
+	Tone      ToneNumber
 	Frequency Frequency
 }
 
@@ -471,12 +477,15 @@ func (num PitchNumber) GetInfo(dst *PitchInfo) *PitchInfo {
 		dst = new(PitchInfo)
 	}
 
-	// todo
+	group := int(num)/12 - 1
+	tone_no := ToneNumber(num % 12)
+	tone_name := tone_no.Name()
 
-	dst.Number = 0
-	dst.Frequency = 0
-	dst.Group = 0
-	dst.Name = ""
+	dst.Number = num
+	dst.Name = PitchName(tone_name.String() + strconv.Itoa(group))
+	dst.Group = PitchGroup(group)
+	dst.Frequency = Frequency(440 * math.Pow(2, (float64(num)-69)/12))
+	dst.Tone = tone_no
 
 	return dst
 }
@@ -580,6 +589,31 @@ type ScaleTemplate struct {
 type ScaleInstance struct {
 	Template ScaleTemplate // 模板
 	Primary  Tone          // 基调 (主音)
+}
+
+//--------------------------------//
+// ScaleBuilder                   //
+//--------------------------------//
+
+type ScaleBuilder struct {
+}
+
+func (inst *ScaleBuilder) BuildTemplate(mode ScaleMode) *ScaleTemplate {
+
+	dst := new(ScaleTemplate)
+
+	// todo
+
+	return dst
+}
+
+func (inst *ScaleBuilder) BuildInstance(mode ScaleMode, primary Tone) *ScaleInstance {
+
+	dst := new(ScaleInstance)
+
+	// todo
+
+	return dst
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,9 @@
 package common
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // 测试辅助
@@ -170,6 +173,89 @@ func TestToneNumberNormalizeRange(t *testing.T) {
 		if got < 0 || got > 11 {
 			t.Fatalf("ToneNumber(%d).Normalize() = %d, out of [0,11]", i, int(got))
 		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PitchNumber
+
+func TestPitchNumberGetInfo(t *testing.T) {
+
+	cases := []struct {
+		name  string
+		num   PitchNumber
+		tone  PitchName
+		group PitchGroup
+		freq  Frequency
+	}{
+		{name: "midi-min", num: 0, tone: "C-1", group: -1, freq: 8.175799},
+		{name: "midi-1", num: 1, tone: "C#-1", group: -1, freq: 8.661957},
+		{name: "piano-min", num: 21, tone: "A0", group: 0, freq: 27.5},
+		{name: "middle-C", num: 60, tone: "C4", group: 4, freq: 261.62558},
+		{name: "concert-A", num: 69, tone: "A4", group: 4, freq: 440},
+		{name: "piano-max", num: 108, tone: "C8", group: 8, freq: 4186.009},
+		{name: "midi-max", num: 127, tone: "G9", group: 9, freq: 12543.854},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := c.num.GetInfo(nil)
+			if got == nil {
+				t.Fatalf("PitchNumber(%d).GetInfo(nil) = nil", int(c.num))
+			}
+			if got.Number != c.num {
+				t.Errorf("Number = %d, want %d", int(got.Number), int(c.num))
+			}
+			if got.Name != c.tone {
+				t.Errorf("Name = %q, want %q", string(got.Name), string(c.tone))
+			}
+			if got.Group != c.group {
+				t.Errorf("Group = %d, want %d", int(got.Group), int(c.group))
+			}
+			if diff := math.Abs(float64(got.Frequency - c.freq)); diff > 0.001 {
+				t.Errorf("Frequency = %f, want %f (±0.001)", got.Frequency, c.freq)
+			}
+		})
+	}
+}
+
+func TestPitchNumberGetInfoListAll(t *testing.T) {
+
+	info1 := new(PitchInfo)
+
+	for i := 0; i < 270; i++ {
+
+		num := PitchNumber(i)
+		info2 := num.GetInfo(info1)
+
+		no := info2.Number
+		group := info2.Group
+		name := info2.Name
+		freq := info2.Frequency
+		tone := info2.Tone.Name()
+
+		t.Logf("  pitch.index[%d] : [info num:%d group:%d tone:%-4s name:%-5s freq:%v]", i, no, group, tone, name, freq)
+	}
+}
+
+func TestPitchNumberGetInfoReusesDestination(t *testing.T) {
+
+	dst := &PitchInfo{
+		Number:    1,
+		Name:      "stale",
+		Group:     99,
+		Frequency: 1,
+	}
+
+	got := PitchNumber(69).GetInfo(dst)
+	if got != dst {
+		t.Fatalf("GetInfo(dst) = %p, want %p", got, dst)
+	}
+	if dst.Number != 69 || dst.Name != "A4" || dst.Group != 4 {
+		t.Errorf("GetInfo(dst) = %+v, want Number:69 Name:\"A4\" Group:4", *dst)
+	}
+	if diff := math.Abs(float64(dst.Frequency - 440)); diff > 0.001 {
+		t.Errorf("Frequency = %f, want 440 (±0.001)", dst.Frequency)
 	}
 }
 
