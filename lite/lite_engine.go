@@ -30,6 +30,48 @@ type Timeline struct {
 	Loop bool
 }
 
+func (inst *Timeline) HasSameRoot(other *Timeline) bool {
+	r1 := inst.GetRoot()
+	r2 := other.GetRoot()
+	return (r1 == r2)
+}
+
+func (inst *Timeline) GetRoot() *Timeline {
+	p := inst
+	for ttl := 32; ttl > 0; ttl-- {
+		if p != nil {
+			parent := p.Parent
+			if parent != nil {
+				p = parent
+				continue
+			}
+		}
+		break
+	}
+	return p
+}
+
+func (inst *Timeline) GetTotalOffset() Seconds {
+	p := inst
+	var total Seconds = 0
+	for ttl := 32; ttl > 0; ttl-- {
+		if p == nil {
+			break
+		} else {
+			total += p.Offset
+			p = p.Parent
+		}
+	}
+	return total
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type TimePoint struct {
+	At       *Timeline
+	Position Seconds
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 type Timer struct {
@@ -124,6 +166,33 @@ type TransportContext struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type ClockEvent struct {
+	Clock   *Clock
+	Point   *TimePoint
+	Context *Context
+}
+
+type ClockListener interface {
+	OnClock(ce *ClockEvent) error
+}
+
+type Clock struct {
+}
+
+func (inst *Clock) AddListener(l ClockListener) {
+
+}
+
+func (inst *Clock) RemoveListener(l ClockListener) {
+
+}
+
+func (inst *Clock) Dispatch(ce *ClockEvent) error {
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 type Configuration struct {
 	Driver Driver
 
@@ -141,6 +210,8 @@ type Context struct {
 
 	TransportContext *TransportContext
 
+	Clock *Clock
+
 	AudioContext AudioContext
 
 	AudioContextFactory AudioContextFactory
@@ -149,9 +220,13 @@ type Context struct {
 
 	MainInstrumentFactory InstrumentFactory
 
-	RootTileline *Timeline
+	Timer        *Timer
+	TimerHandler func(*Timer) error
 
-	WorkTileline *Timeline
+	RootTileline  *Timeline
+	WorkTileline  *Timeline
+	CurrentAtWork *TimePoint
+	CurrentAtRoot *TimePoint
 }
 
 ////////////////////////////////////////////////////////////////////////////////
