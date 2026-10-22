@@ -1254,7 +1254,7 @@ func TestChordBuilderBuildInstance(t *testing.T) {
 		if got := builder.SetMode(ChordModeMin7); got != builder {
 			t.Errorf("SetMode() should return the builder")
 		}
-		if got := builder.SetRoot(Tone{Number: ToneNumberD, Name: ToneNameB}); got != builder {
+		if got := builder.SetRoot(ToneNumberD); got != builder {
 			t.Errorf("SetRoot() should return the builder")
 		}
 
@@ -1371,8 +1371,7 @@ func TestScaleBuilderBuildTemplate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			builder := new(ScaleBuilder)
-			got := builder.BuildTemplate(c.mode)
+			got := new(ScaleBuilder).SetMode(c.mode).BuildTemplate()
 			if got == nil {
 				t.Fatalf("BuildTemplate(%q) = nil", c.mode)
 			}
@@ -1407,7 +1406,7 @@ func TestScaleBuilderBuildTemplate(t *testing.T) {
 
 	t.Run("empty-mode", func(t *testing.T) {
 		mode := ScaleModeMock
-		got := new(ScaleBuilder).BuildTemplate(mode)
+		got := new(ScaleBuilder).SetMode(mode).BuildTemplate()
 		if got.Mode != mode {
 			t.Errorf("Mode = %q, want %q", got.Mode, mode)
 		}
@@ -1417,7 +1416,11 @@ func TestScaleBuilderBuildTemplate(t *testing.T) {
 	})
 
 	t.Run("unknown-mode", func(t *testing.T) {
-		got := new(ScaleBuilder).BuildTemplate(ScaleMode("unknown"))
+		mode := ScaleMode("unknown")
+		got := new(ScaleBuilder).SetMode(mode).BuildTemplate()
+		if got.Mode != mode {
+			t.Errorf("Mode = %q, want %q", got.Mode, mode)
+		}
 		if got.base != nil || len(got.all) != 0 {
 			t.Errorf("unknown mode should build an empty template")
 		}
@@ -1425,16 +1428,16 @@ func TestScaleBuilderBuildTemplate(t *testing.T) {
 
 	t.Run("nil-builder", func(t *testing.T) {
 		var builder *ScaleBuilder
-		got := builder.BuildTemplate(ScaleModeMajor)
+		got := builder.BuildTemplate()
 		if got == nil || len(got.all) != 7 {
 			t.Errorf("(*ScaleBuilder)(nil).BuildTemplate(major) should build a major scale")
 		}
 	})
 
 	t.Run("fresh-template", func(t *testing.T) {
-		builder := new(ScaleBuilder)
-		first := builder.BuildTemplate(ScaleModeMajor)
-		second := builder.BuildTemplate(ScaleModeMajor)
+		builder := new(ScaleBuilder).SetMode(ScaleModeMajor)
+		first := builder.BuildTemplate()
+		second := builder.BuildTemplate()
 		if first == second {
 			t.Errorf("BuildTemplate should allocate a new template each time")
 		}
@@ -1446,14 +1449,24 @@ func TestScaleBuilderBuildTemplate(t *testing.T) {
 
 func TestScaleBuilderBuildInstance(t *testing.T) {
 
-	primary := Tone{Number: ToneNumberD, Name: ToneNameD}
-	got := new(ScaleBuilder).BuildInstance(ScaleModeMajor, primary)
+	builder := new(ScaleBuilder)
+	if got := builder.SetMode(ScaleModeMajor); got != builder {
+		t.Errorf("SetMode() should return the builder")
+	}
+	if got := builder.SetPrimary(ToneNumberD); got != builder {
+		t.Errorf("SetPrimary() should return the builder")
+	}
+
+	got := builder.BuildInstance()
 
 	if got == nil {
 		t.Fatalf("BuildInstance(major, D) = nil")
 	}
-	if got.Primary != primary {
-		t.Errorf("Primary = %+v, want %+v", got.Primary, primary)
+	if got.Primary.Number != ToneNumberD || got.Primary.Name != ToneNameD {
+		t.Errorf("Primary = (%d, %q), want (2, \"D\")", int(got.Primary.Number), got.Primary.Name)
+	}
+	if got.Primary.Base != &got.Primary || got.Primary.Offset != 0 {
+		t.Errorf("Primary should be normalized as its own base")
 	}
 	if got.Template.Mode != ScaleModeMajor {
 		t.Errorf("Template.Mode = %q, want %q", got.Template.Mode, ScaleModeMajor)
@@ -1472,16 +1485,16 @@ func TestScaleBuilderBuildInstance(t *testing.T) {
 
 	t.Run("nil-builder", func(t *testing.T) {
 		var builder *ScaleBuilder
-		instance := builder.BuildInstance(ScaleModeMinorPentatonic, primary)
-		if instance == nil || instance.Template.Mode != ScaleModeMinorPentatonic {
+		instance := builder.BuildInstance()
+		if instance == nil || instance.Template.Mode != ScaleModeMajor {
 			t.Errorf("(*ScaleBuilder)(nil).BuildInstance() should build a valid instance")
 		}
 	})
 
 	t.Run("fresh-instance", func(t *testing.T) {
-		builder := new(ScaleBuilder)
-		first := builder.BuildInstance(ScaleModeMajor, primary)
-		second := builder.BuildInstance(ScaleModeMajor, primary)
+		builder := new(ScaleBuilder).SetMode(ScaleModeMajor).SetPrimary(ToneNumberD)
+		first := builder.BuildInstance()
+		second := builder.BuildInstance()
 		if first == second || first == nil || second == nil {
 			t.Errorf("BuildInstance should allocate a new instance each time")
 		}

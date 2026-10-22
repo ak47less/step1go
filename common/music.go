@@ -588,7 +588,7 @@ type ChordInstance struct {
 
 type ChordBuilder struct {
 	mode ChordMode
-	root Tone
+	root ToneNumber
 }
 
 func (inst *ChordBuilder) BuildTemplate() *ChordTemplate {
@@ -612,17 +612,13 @@ func (inst *ChordBuilder) BuildTemplate() *ChordTemplate {
 func (inst *ChordBuilder) BuildInstance() *ChordInstance {
 
 	dst := new(ChordInstance)
-
 	dst.Template = *inst.BuildTemplate()
 
-	var root Tone
+	var root ToneNumber
 	if inst != nil {
 		root = inst.root
 	}
-	root.Name = root.Number.Name()
-	root.Offset = 0
-	dst.Root = root
-	dst.Root.Base = &dst.Root
+	normalizeTone(&dst.Root, root)
 
 	return dst
 }
@@ -636,7 +632,7 @@ func (inst *ChordBuilder) SetMode(mode ChordMode) *ChordBuilder {
 }
 
 // SetRoot 设置和弦实例的根音。
-func (inst *ChordBuilder) SetRoot(root Tone) *ChordBuilder {
+func (inst *ChordBuilder) SetRoot(root ToneNumber) *ChordBuilder {
 	if inst != nil {
 		inst.root = root
 	}
@@ -801,11 +797,31 @@ type ScaleInstance struct {
 //--------------------------------//
 
 type ScaleBuilder struct {
+	mode    ScaleMode
+	primary ToneNumber
 }
 
-func (inst *ScaleBuilder) BuildTemplate(mode ScaleMode) *ScaleTemplate {
+func (inst *ScaleBuilder) SetMode(mode ScaleMode) *ScaleBuilder {
+	if inst != nil {
+		inst.mode = mode
+	}
+	return inst
+}
+
+func (inst *ScaleBuilder) SetPrimary(primary ToneNumber) *ScaleBuilder {
+	if inst != nil {
+		inst.primary = primary
+	}
+	return inst
+}
+
+func (inst *ScaleBuilder) BuildTemplate() *ScaleTemplate {
 
 	dst := new(ScaleTemplate)
+	mode := ScaleModeMajor
+	if inst != nil && inst.mode != "" {
+		mode = inst.mode
+	}
 	dst.Mode = mode
 
 	builder := new(ToneSetBuilder)
@@ -815,13 +831,26 @@ func (inst *ScaleBuilder) BuildTemplate(mode ScaleMode) *ScaleTemplate {
 	return dst
 }
 
-func (inst *ScaleBuilder) BuildInstance(mode ScaleMode, primary Tone) *ScaleInstance {
+func (inst *ScaleBuilder) BuildInstance() *ScaleInstance {
 
 	dst := new(ScaleInstance)
-	dst.Template = *inst.BuildTemplate(mode)
-	dst.Primary = primary
+	dst.Template = *inst.BuildTemplate()
+
+	var primary ToneNumber
+	if inst != nil {
+		primary = inst.primary
+	}
+	normalizeTone(&dst.Primary, primary)
 
 	return dst
+}
+
+// normalizeTone 使用音级值初始化一个以自身为基准的音。
+func normalizeTone(dst *Tone, number ToneNumber) {
+	dst.Number = number
+	dst.Name = number.Name()
+	dst.Offset = 0
+	dst.Base = dst
 }
 
 // scaleIntervals 返回各调式相对主音的半音间隔。
