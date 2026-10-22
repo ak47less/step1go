@@ -572,12 +572,28 @@ const (
 	ScaleModeHarmonicMinor ScaleMode = "harmonic_minor" // 和声小调
 	ScaleModeMelodicMinor  ScaleMode = "melodic_minor"  // 旋律小调
 
+	// 教会调式
+
+	ScaleModeIonian     ScaleMode = "ionian"     // 伊奥尼亚调式
+	ScaleModeDorian     ScaleMode = "dorian"     // 多利亚调式
+	ScaleModePhrygian   ScaleMode = "phrygian"   // 弗里几亚调式
+	ScaleModeLydian     ScaleMode = "lydian"     // 利底亚调式
+	ScaleModeMixolydian ScaleMode = "mixolydian" // 混合利底亚调式
+	ScaleModeAeolian    ScaleMode = "aeolian"    // 爱奥利亚调式
+	ScaleModeLocrian    ScaleMode = "locrian"    // 洛克里亚调式
+
 	// 五声音阶
 
 	ScaleModePentatonic      ScaleMode = "Pentatonic"      // 五声音阶
 	ScaleModeMajorPentatonic ScaleMode = "MajorPentatonic" // 大调五声音阶
 	ScaleModeMinorPentatonic ScaleMode = "MinorPentatonic" // 小调五声音阶
 
+	// 其它常用音阶
+
+	ScaleModeBlues      ScaleMode = "blues"       // 小调布鲁斯音阶
+	ScaleModeMajorBlues ScaleMode = "major_blues" // 大调布鲁斯音阶
+	ScaleModeWholeTone  ScaleMode = "whole_tone"  // 全音阶
+	ScaleModeChromatic  ScaleMode = "chromatic"   // 半音阶
 )
 
 type ScaleTemplate struct {
@@ -601,8 +617,11 @@ type ScaleBuilder struct {
 func (inst *ScaleBuilder) BuildTemplate(mode ScaleMode) *ScaleTemplate {
 
 	dst := new(ScaleTemplate)
+	dst.Mode = mode
 
-	// todo
+	builder := new(ToneSetBuilder)
+	pattern := buildScalePattern(mode)
+	dst.ToneSet = *builder.SetPattern(pattern).Build(nil)
 
 	return dst
 }
@@ -610,10 +629,69 @@ func (inst *ScaleBuilder) BuildTemplate(mode ScaleMode) *ScaleTemplate {
 func (inst *ScaleBuilder) BuildInstance(mode ScaleMode, primary Tone) *ScaleInstance {
 
 	dst := new(ScaleInstance)
-
-	// todo
+	dst.Template = *inst.BuildTemplate(mode)
+	dst.Primary = primary
 
 	return dst
+}
+
+// scaleIntervals 返回各调式相对主音的半音间隔。
+func scaleIntervals(mode ScaleMode) []int {
+	switch mode {
+	case ScaleModeMajor, ScaleModeNaturalMajor:
+		return []int{0, 2, 4, 5, 7, 9, 11}
+	case ScaleModeMinor, ScaleModeNaturalMinor:
+		return []int{0, 2, 3, 5, 7, 8, 10}
+	case ScaleModeHarmonicMinor:
+		return []int{0, 2, 3, 5, 7, 8, 11}
+	case ScaleModeMelodicMinor:
+		return []int{0, 2, 3, 5, 7, 9, 11}
+	case ScaleModeIonian:
+		return []int{0, 2, 4, 5, 7, 9, 11}
+	case ScaleModeDorian:
+		return []int{0, 2, 3, 5, 7, 9, 10}
+	case ScaleModePhrygian:
+		return []int{0, 1, 3, 5, 7, 8, 10}
+	case ScaleModeLydian:
+		return []int{0, 2, 4, 6, 7, 9, 11}
+	case ScaleModeMixolydian:
+		return []int{0, 2, 4, 5, 7, 9, 10}
+	case ScaleModeAeolian:
+		return []int{0, 2, 3, 5, 7, 8, 10}
+	case ScaleModeLocrian:
+		return []int{0, 1, 3, 5, 6, 8, 10}
+	case ScaleModePentatonic, ScaleModeMajorPentatonic:
+		return []int{0, 2, 4, 7, 9}
+	case ScaleModeMinorPentatonic:
+		return []int{0, 3, 5, 7, 10}
+	case ScaleModeBlues:
+		return []int{0, 3, 5, 6, 7, 10}
+	case ScaleModeMajorBlues:
+		return []int{0, 2, 3, 4, 7, 9}
+	case ScaleModeWholeTone:
+		return []int{0, 2, 4, 6, 8, 10}
+	case ScaleModeChromatic:
+		return []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+	default:
+		return nil
+	}
+}
+
+// buildScalePattern 将半音间隔转换成 ToneSetBuilder 使用的点位模式。
+func buildScalePattern(mode ScaleMode) string {
+	intervals := scaleIntervals(mode)
+	if len(intervals) == 0 {
+		return ""
+	}
+
+	pattern := make([]rune, intervals[len(intervals)-1]+1)
+	for i := range pattern {
+		pattern[i] = '.'
+	}
+	for i, interval := range intervals {
+		pattern[interval] = rune('a' + i)
+	}
+	return string(pattern)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

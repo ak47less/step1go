@@ -1004,4 +1004,194 @@ func TestToneSetBuilderReset(t *testing.T) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// ScaleBuilder
+
+func TestScaleModeValues(t *testing.T) {
+
+	cases := []struct {
+		name string
+		mode ScaleMode
+		want string
+	}{
+		{name: "mock", mode: ScaleModeMock, want: "mock"},
+		{name: "major", mode: ScaleModeMajor, want: "major"},
+		{name: "natural-major", mode: ScaleModeNaturalMajor, want: "natural_major"},
+		{name: "minor", mode: ScaleModeMinor, want: "minor"},
+		{name: "natural-minor", mode: ScaleModeNaturalMinor, want: "natural_minor"},
+		{name: "harmonic-minor", mode: ScaleModeHarmonicMinor, want: "harmonic_minor"},
+		{name: "melodic-minor", mode: ScaleModeMelodicMinor, want: "melodic_minor"},
+		{name: "ionian", mode: ScaleModeIonian, want: "ionian"},
+		{name: "dorian", mode: ScaleModeDorian, want: "dorian"},
+		{name: "phrygian", mode: ScaleModePhrygian, want: "phrygian"},
+		{name: "lydian", mode: ScaleModeLydian, want: "lydian"},
+		{name: "mixolydian", mode: ScaleModeMixolydian, want: "mixolydian"},
+		{name: "aeolian", mode: ScaleModeAeolian, want: "aeolian"},
+		{name: "locrian", mode: ScaleModeLocrian, want: "locrian"},
+		{name: "pentatonic", mode: ScaleModePentatonic, want: "Pentatonic"},
+		{name: "major-pentatonic", mode: ScaleModeMajorPentatonic, want: "MajorPentatonic"},
+		{name: "minor-pentatonic", mode: ScaleModeMinorPentatonic, want: "MinorPentatonic"},
+		{name: "blues", mode: ScaleModeBlues, want: "blues"},
+		{name: "major-blues", mode: ScaleModeMajorBlues, want: "major_blues"},
+		{name: "whole-tone", mode: ScaleModeWholeTone, want: "whole_tone"},
+		{name: "chromatic", mode: ScaleModeChromatic, want: "chromatic"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := string(c.mode); got != c.want {
+				t.Errorf("ScaleMode = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestScaleBuilderBuildTemplate(t *testing.T) {
+
+	cases := []struct {
+		name string
+		mode ScaleMode
+		want []int
+	}{
+		{name: "major", mode: ScaleModeMajor, want: []int{0, 2, 4, 5, 7, 9, 11}},
+		{name: "natural-major", mode: ScaleModeNaturalMajor, want: []int{0, 2, 4, 5, 7, 9, 11}},
+		{name: "minor", mode: ScaleModeMinor, want: []int{0, 2, 3, 5, 7, 8, 10}},
+		{name: "natural-minor", mode: ScaleModeNaturalMinor, want: []int{0, 2, 3, 5, 7, 8, 10}},
+		{name: "harmonic-minor", mode: ScaleModeHarmonicMinor, want: []int{0, 2, 3, 5, 7, 8, 11}},
+		{name: "melodic-minor", mode: ScaleModeMelodicMinor, want: []int{0, 2, 3, 5, 7, 9, 11}},
+		{name: "ionian", mode: ScaleModeIonian, want: []int{0, 2, 4, 5, 7, 9, 11}},
+		{name: "dorian", mode: ScaleModeDorian, want: []int{0, 2, 3, 5, 7, 9, 10}},
+		{name: "phrygian", mode: ScaleModePhrygian, want: []int{0, 1, 3, 5, 7, 8, 10}},
+		{name: "lydian", mode: ScaleModeLydian, want: []int{0, 2, 4, 6, 7, 9, 11}},
+		{name: "mixolydian", mode: ScaleModeMixolydian, want: []int{0, 2, 4, 5, 7, 9, 10}},
+		{name: "aeolian", mode: ScaleModeAeolian, want: []int{0, 2, 3, 5, 7, 8, 10}},
+		{name: "locrian", mode: ScaleModeLocrian, want: []int{0, 1, 3, 5, 6, 8, 10}},
+		{name: "pentatonic", mode: ScaleModePentatonic, want: []int{0, 2, 4, 7, 9}},
+		{name: "major-pentatonic", mode: ScaleModeMajorPentatonic, want: []int{0, 2, 4, 7, 9}},
+		{name: "minor-pentatonic", mode: ScaleModeMinorPentatonic, want: []int{0, 3, 5, 7, 10}},
+		{name: "blues", mode: ScaleModeBlues, want: []int{0, 3, 5, 6, 7, 10}},
+		{name: "major-blues", mode: ScaleModeMajorBlues, want: []int{0, 2, 3, 4, 7, 9}},
+		{name: "whole-tone", mode: ScaleModeWholeTone, want: []int{0, 2, 4, 6, 8, 10}},
+		{name: "chromatic", mode: ScaleModeChromatic, want: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			builder := new(ScaleBuilder)
+			got := builder.BuildTemplate(c.mode)
+			if got == nil {
+				t.Fatalf("BuildTemplate(%q) = nil", c.mode)
+			}
+			if got.Mode != c.mode {
+				t.Errorf("Mode = %q, want %q", got.Mode, c.mode)
+			}
+			if len(got.all) != len(c.want) {
+				t.Fatalf("len(all) = %d, want %d", len(got.all), len(c.want))
+			}
+			if got.base != got.all[0] {
+				t.Errorf("base should be the first tone")
+			}
+
+			for i, interval := range c.want {
+				item := got.all[i]
+				wantNumber := ToneNumber(interval)
+				if item.Number != wantNumber {
+					t.Errorf("all[%d].Number = %d, want %d", i, int(item.Number), interval)
+				}
+				if item.Name != wantNumber.Name() {
+					t.Errorf("all[%d].Name = %q, want %q", i, item.Name, wantNumber.Name())
+				}
+				if item.Offset != int8(interval) {
+					t.Errorf("all[%d].Offset = %d, want %d", i, int(item.Offset), interval)
+				}
+				if item.Base != got.base {
+					t.Errorf("all[%d].Base should point to the scale root", i)
+				}
+			}
+		})
+	}
+
+	t.Run("empty-mode", func(t *testing.T) {
+		mode := ScaleModeMock
+		got := new(ScaleBuilder).BuildTemplate(mode)
+		if got.Mode != mode {
+			t.Errorf("Mode = %q, want %q", got.Mode, mode)
+		}
+		if got.base != nil || len(got.all) != 0 {
+			t.Errorf("mock mode should build an empty template")
+		}
+	})
+
+	t.Run("unknown-mode", func(t *testing.T) {
+		got := new(ScaleBuilder).BuildTemplate(ScaleMode("unknown"))
+		if got.base != nil || len(got.all) != 0 {
+			t.Errorf("unknown mode should build an empty template")
+		}
+	})
+
+	t.Run("nil-builder", func(t *testing.T) {
+		var builder *ScaleBuilder
+		got := builder.BuildTemplate(ScaleModeMajor)
+		if got == nil || len(got.all) != 7 {
+			t.Errorf("(*ScaleBuilder)(nil).BuildTemplate(major) should build a major scale")
+		}
+	})
+
+	t.Run("fresh-template", func(t *testing.T) {
+		builder := new(ScaleBuilder)
+		first := builder.BuildTemplate(ScaleModeMajor)
+		second := builder.BuildTemplate(ScaleModeMajor)
+		if first == second {
+			t.Errorf("BuildTemplate should allocate a new template each time")
+		}
+		if len(first.all) == 0 || &first.all[0] == &second.all[0] {
+			t.Errorf("templates should not share tone storage")
+		}
+	})
+}
+
+func TestScaleBuilderBuildInstance(t *testing.T) {
+
+	primary := Tone{Number: ToneNumberD, Name: ToneNameD}
+	got := new(ScaleBuilder).BuildInstance(ScaleModeMajor, primary)
+
+	if got == nil {
+		t.Fatalf("BuildInstance(major, D) = nil")
+	}
+	if got.Primary != primary {
+		t.Errorf("Primary = %+v, want %+v", got.Primary, primary)
+	}
+	if got.Template.Mode != ScaleModeMajor {
+		t.Errorf("Template.Mode = %q, want %q", got.Template.Mode, ScaleModeMajor)
+	}
+	if len(got.Template.all) != 7 {
+		t.Fatalf("len(Template.all) = %d, want 7", len(got.Template.all))
+	}
+
+	// 模板保持在 C 主音上, 由 Primary 指定实例的主音.
+	want := []ToneNumber{ToneNumberC, ToneNumberD, ToneNumberE, ToneNumberF, ToneNumberG, ToneNumberA, ToneNumberB}
+	for i, number := range want {
+		if got.Template.all[i].Number != number {
+			t.Errorf("Template.all[%d].Number = %d, want %d", i, int(got.Template.all[i].Number), int(number))
+		}
+	}
+
+	t.Run("nil-builder", func(t *testing.T) {
+		var builder *ScaleBuilder
+		instance := builder.BuildInstance(ScaleModeMinorPentatonic, primary)
+		if instance == nil || instance.Template.Mode != ScaleModeMinorPentatonic {
+			t.Errorf("(*ScaleBuilder)(nil).BuildInstance() should build a valid instance")
+		}
+	})
+
+	t.Run("fresh-instance", func(t *testing.T) {
+		builder := new(ScaleBuilder)
+		first := builder.BuildInstance(ScaleModeMajor, primary)
+		second := builder.BuildInstance(ScaleModeMajor, primary)
+		if first == second || first == nil || second == nil {
+			t.Errorf("BuildInstance should allocate a new instance each time")
+		}
+	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // EOF
