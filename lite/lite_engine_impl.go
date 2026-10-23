@@ -1,5 +1,10 @@
 package lite
 
+import (
+	"fmt"
+	"time"
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // innerEngineFactory
 
@@ -25,6 +30,8 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	pt1 := new(TimePoint) // work
 	trans := new(innerTransport)
 	timer := new(Timer)
+	clock := new(Clock)
+	seqfactory := new(innerSequencerFactory)
 
 	engine.context = ctx
 
@@ -50,6 +57,13 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.CurrentAtWork = pt1
 	ctx.Timer = timer
 	ctx.TimerHandler = trans.ontimer
+	ctx.Clock = clock
+
+	seq, err := seqfactory.CreateSequencer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ctx.SequencerContext = seq.GetContext()
 
 	return ctx.Engine, nil
 }
@@ -63,6 +77,29 @@ func (inst *innerEngineFactory) _impl() EngineFactory {
 
 type innerEngine struct {
 	context *Context
+}
+
+// GetContext implements [Engine].
+func (inst *innerEngine) GetContext() *EngineContext {
+	return inst.context
+}
+
+// Join implements [Engine].
+func (inst *innerEngine) Join() error {
+
+	state := &inst.context.State
+
+	if !state.Starting {
+		return fmt.Errorf("call engine.start() first")
+	}
+
+	for {
+		if state.Stopping || state.Stopped {
+			break
+		}
+		time.Sleep(time.Millisecond * 200)
+	}
+	return nil
 }
 
 // Create implements [Engine].
@@ -86,7 +123,10 @@ func (inst *innerEngine) Create() error {
 // Destroy implements [Engine].
 func (inst *innerEngine) Destroy() error {
 
-	inst.context.Timer = nil
+	ctx := inst.context
+
+	ctx.Timer = nil
+	ctx.State.Stopped = true
 
 	return nil
 }
@@ -94,7 +134,12 @@ func (inst *innerEngine) Destroy() error {
 // Start implements [Engine].
 func (inst *innerEngine) Start() error {
 
-	timer := inst.context.Timer
+	ctx := inst.context
+	timer := ctx.Timer
+	ac := ctx.AudioContext
+
+	ctx.State.Starting = true
+	ac.Resume()
 	timer.Start()
 
 	return nil
@@ -103,13 +148,14 @@ func (inst *innerEngine) Start() error {
 // Stop implements [Engine].
 func (inst *innerEngine) Stop() error {
 
+	inst.context.State.Stopping = true
+
 	timer := inst.context.Timer
 	timer.Stop()
 	return nil
 }
 
 func (inst *innerEngine) _impl() Engine {
-
 	return inst
 }
 
@@ -182,6 +228,10 @@ func (inst *innerTransport) ontimer(t *Timer) error {
 	ctx := inst.ctx
 	ac := ctx.AudioContext
 	t0 := ac.GetCurrentTime()
+	clock := ctx.Clock
+	evt := new(ClockEvent)
+
+	ctx.State.Started = true
 
 	tp0 := ctx.CurrentAtRoot
 	tp1 := ctx.CurrentAtWork
@@ -190,7 +240,11 @@ func (inst *innerTransport) ontimer(t *Timer) error {
 	tp0.Position = t0
 	tp1.Position = t0 - off
 
-	return nil
+	evt.Clock = clock
+	evt.Context = ctx
+	evt.Point = tp1
+
+	return clock.Dispatch(evt)
 }
 
 // Create implements [Engine].

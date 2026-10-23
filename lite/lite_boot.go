@@ -27,6 +27,11 @@ func (inst *Boot) Run(cfg *Configuration) error {
 		return err
 	}
 
+	err = engine.Join()
+	if err != nil {
+		return err
+	}
+
 	err = engine.Stop()
 	if err != nil {
 		return err

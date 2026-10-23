@@ -1,4 +1,4 @@
-package step1core
+package common
 
 import (
 	"fmt"

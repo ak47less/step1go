@@ -1,7 +1,10 @@
 package lite
 
 import (
+	"errors"
 	"log"
+	"reflect"
+	"sync"
 	"time"
 )
 
@@ -20,6 +23,8 @@ func handleError(err error) {
 
 type Timeline struct {
 	Parent *Timeline
+
+	Label string
 
 	Offset Seconds
 
@@ -134,14 +139,28 @@ func (inst *Timer) sec2du(sec Seconds) time.Duration {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Engine interface {
+	GetContext() *EngineContext
+
 	Create() error
+
 	Start() error
+
+	Join() error
+
 	Stop() error
+
 	Destroy() error
 }
 
 type EngineFactory interface {
 	CreateEngine(cfg *Configuration) (Engine, error)
+}
+
+type EngineState struct {
+	Starting bool
+	Stopping bool
+	Stopped  bool
+	Started  bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -176,31 +195,109 @@ type ClockListener interface {
 	OnClock(ce *ClockEvent) error
 }
 
+/**************************/
+/*  class Clock           */
+/**************************/
+
 type Clock struct {
+	mu        sync.RWMutex
+	listeners []ClockListener
 }
 
 func (inst *Clock) AddListener(l ClockListener) {
+	if isNilClockListener(l) {
+		return
+	}
 
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+
+	for _, item := range inst.listeners {
+		if sameClockListener(item, l) {
+			return
+		}
+	}
+	inst.listeners = append(inst.listeners, l)
 }
 
 func (inst *Clock) RemoveListener(l ClockListener) {
+	if isNilClockListener(l) {
+		return
+	}
 
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+
+	listeners := inst.listeners[:0]
+	for _, item := range inst.listeners {
+		if !sameClockListener(item, l) {
+			listeners = append(listeners, item)
+		}
+	}
+	inst.listeners = listeners
 }
 
 func (inst *Clock) Dispatch(ce *ClockEvent) error {
+	if ce == nil {
+		return errors.New("lite: nil clock event")
+	}
 
+	inst.mu.RLock()
+	listeners := append([]ClockListener(nil), inst.listeners...)
+	inst.mu.RUnlock()
+
+	ce.Clock = inst
+
+	var firstErr error
+	var joinedErr error
+	for _, listener := range listeners {
+		err := listener.OnClock(ce)
+		if err == nil {
+			continue
+		}
+		if firstErr == nil {
+			firstErr = err
+		} else {
+			joinedErr = errors.Join(joinedErr, err)
+		}
+	}
+
+	if joinedErr != nil {
+		return errors.Join(firstErr, joinedErr)
+	}
+	return firstErr
+}
+
+func isNilClockListener(l ClockListener) bool {
+	if l == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(l)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
+func sameClockListener(a ClockListener, b ClockListener) bool {
+	if isNilClockListener(a) || isNilClockListener(b) {
+		return false
+	}
+
+	ta := reflect.TypeOf(a)
+	tb := reflect.TypeOf(b)
+	if ta != tb || !ta.Comparable() {
+		return false
+	}
+	return a == b
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type Configuration struct {
-	Driver Driver
-
-	SampleRate int
-
-	BPM BPM
-}
-
+// Context : the engine-Context
 type Context struct {
 	Configuration *Configuration
 
@@ -209,6 +306,8 @@ type Context struct {
 	Transport Transport
 
 	TransportContext *TransportContext
+
+	SequencerContext *SequencerContext
 
 	Clock *Clock
 
@@ -227,7 +326,11 @@ type Context struct {
 	WorkTileline  *Timeline
 	CurrentAtWork *TimePoint
 	CurrentAtRoot *TimePoint
+
+	State EngineState
 }
+
+type EngineContext = Context
 
 ////////////////////////////////////////////////////////////////////////////////
 // EOF
