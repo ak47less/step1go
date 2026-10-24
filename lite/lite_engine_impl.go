@@ -24,10 +24,10 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	acfactory := driver.GetAudioContextFactory()
 	ac := acfactory.NewAudioContext()
 	tc := new(TransportContext)
-	tl0 := new(Timeline)  // root
-	tl1 := new(Timeline)  // work
-	pt0 := new(TimePoint) // root
-	pt1 := new(TimePoint) // work
+	tl0 := new(Timeline)         // root
+	tl1 := new(Timeline)         // work
+	pt0 := new(RelativePosition) // root
+	pt1 := new(RelativePosition) // work
 	trans := new(innerTransport)
 	timer := new(Timer)
 	clock := new(Clock)
@@ -38,7 +38,10 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	trans.ctx = ctx
 	trans.tc = tc
 
+	tl0.Label = "root"
 	tl0.BPM = cfg.BPM
+
+	tl1.Label = "work"
 	tl1.BPM = cfg.BPM
 	tl1.Parent = tl0
 
@@ -223,7 +226,25 @@ func (inst *innerTransport) Stop() error {
 	return nil
 }
 
+func (inst *innerTransport) innerCheckUpdate() error {
+
+	ctx := inst.ctx
+	sc := ctx.SequencerContext
+
+	if sc.Updating {
+		seq := sc.Sequencer
+		return seq.Update(sc)
+	}
+
+	return nil
+}
+
 func (inst *innerTransport) ontimer(t *Timer) error {
+
+	err := inst.innerCheckUpdate()
+	if err != nil {
+		return err
+	}
 
 	ctx := inst.ctx
 	ac := ctx.AudioContext
@@ -242,7 +263,7 @@ func (inst *innerTransport) ontimer(t *Timer) error {
 
 	evt.Clock = clock
 	evt.Context = ctx
-	evt.Point = tp1
+	evt.Time = tp1
 
 	return clock.Dispatch(evt)
 }

@@ -8,7 +8,7 @@ func (inst *Boot) Run(cfg *Configuration) error {
 	ef := DefaultEngineFactory()
 
 	if cfg == nil {
-		cfg = new(Configuration)
+		cfg = DefaultConfig()
 		inst.loadDefaultConfig(cfg)
 	}
 

@@ -1,6 +1,9 @@
 package lite
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Note
@@ -14,13 +17,17 @@ type Note struct {
 // cell
 
 type Cell struct {
-	Bank  BankIndex
-	Step  StepIndex
-	Track TrackIndex
+	BankIndex  BankIndex
+	StepIndex  StepIndex
+	TrackIndex TrackIndex
 }
 
 type SimpleCell struct {
 	Cell
+
+	StepRef  *Step
+	BankRef  *Bank
+	TrackRef *Track
 
 	Complex *ComplexCell
 }
@@ -35,12 +42,82 @@ type ComplexCell struct {
 	Notes []*Note // 每个 ComplexCell 可以平均拆分成一个或多个 Note
 }
 
+/************************/
+/* SimpleCellCache      */
+/************************/
+
+type SimpleCellCache struct {
+	list []*SimpleCell
+}
+
+func (inst *SimpleCellCache) sort() {
+
+}
+
+/************************/
+/* SimpleCellManager    */
+/************************/
+
+type SimpleCellManager struct {
+	table map[string]*SimpleCell
+}
+
+func (inst *SimpleCellManager) OpenCell(want *Cell, autoMake bool) (*SimpleCell, error) {
+
+	key := inst.innerGetKeyForCell(want)
+	tab := inst.innerGetTable()
+	have := tab[key]
+
+	if have == nil {
+		if autoMake {
+			have = new(SimpleCell)
+			have.BankIndex = want.BankIndex
+			have.StepIndex = want.StepIndex
+			have.TrackIndex = want.TrackIndex
+			tab[key] = have
+		} else {
+			const f = "no item:[cell bank:%d step:%d track:%d] in manager"
+			err := fmt.Errorf(f, want.BankIndex, want.StepIndex, want.TrackIndex)
+			return nil, err
+		}
+	}
+
+	return have, nil
+}
+
+func (inst *SimpleCellManager) innerGetKeyForCell(want *Cell) string {
+	if want == nil {
+		return ""
+	}
+	return fmt.Sprintf("b%d_s%d_t%d", want.BankIndex, want.StepIndex, want.TrackIndex)
+}
+
+func (inst *SimpleCellManager) innerGetTable() map[string]*SimpleCell {
+	t := inst.table
+	if t == nil {
+		t = make(map[string]*SimpleCell)
+		inst.table = t
+	}
+	return t
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // step
 
 type StepIndex uint
 
 type StepCount uint
+
+/**********************/
+/* Step (position)    */
+/**********************/
+
+type StepPosition struct {
+	Index    StepIndex
+	Count    StepCount
+	Position Seconds
+	AtLine   *Timeline
+}
 
 /**********************/
 /* Step (head)        */
@@ -58,7 +135,7 @@ type StepHead struct {
 type StepBody struct {
 	Head *StepHead
 
-	Cells []*SimpleCell
+	Cells SimpleCellCache
 }
 
 /**********************/
@@ -87,6 +164,20 @@ func (inst *StepList) SetCapacity(cap uint) uint {
 	}
 	inst.capacity = cap
 	return cap
+}
+
+func (inst *StepList) GetSize() uint {
+	return inst.size
+}
+
+func (inst *StepList) GetStep(index StepIndex) *Step {
+	all := inst.list
+	cnt := len(all)
+	idx := int(index)
+	if idx < cnt {
+		return all[idx]
+	}
+	return nil
 }
 
 func (inst *StepList) SetSize(size uint) uint {
@@ -154,8 +245,11 @@ type TrackHead struct {
 }
 
 type TrackBody struct {
-	Head   *TrackHead
+	Head *TrackHead
+
 	Weight byte
+
+	Cells SimpleCellCache
 }
 
 type Track struct {
@@ -190,6 +284,20 @@ func (inst *TrackList) SetSize(size uint) uint {
 	inst.size = size
 	inst.updateList()
 	return size
+}
+
+func (inst *TrackList) GetSize() uint {
+	return inst.size
+}
+
+func (inst *TrackList) GetTrack(index TrackIndex) *Track {
+	all := inst.list
+	cnt := len(all)
+	idx := int(index)
+	if idx < cnt {
+		return all[idx]
+	}
+	return nil
 }
 
 func (inst *TrackList) Init(size uint) {
@@ -234,7 +342,7 @@ func (inst *TrackList) updateList() {
 ////////////////////////////////////////////////////////////////////////////////
 // bank
 
-type BankIndex int
+type BankIndex uint
 
 type BankName string
 
@@ -249,6 +357,8 @@ type BankBody struct {
 	Head *BankHead
 
 	Steps StepList
+
+	CellManager SimpleCellManager
 }
 
 type Bank struct {
@@ -283,6 +393,20 @@ func (inst *BankList) SetSize(size uint) uint {
 	inst.size = size
 	inst.updateList()
 	return size
+}
+
+func (inst *BankList) GetSize() uint {
+	return inst.size
+}
+
+func (inst *BankList) GetBank(index BankIndex) *Bank {
+	all := inst.list
+	cnt := len(all)
+	idx := int(index)
+	if idx < cnt {
+		return all[idx]
+	}
+	return nil
 }
 
 func (inst *BankList) Init(size uint) {
@@ -354,7 +478,8 @@ type SequencerContext struct {
 
 	Sequencer Sequencer
 
-	CurrentBank *Bank
+	CurrentBank      *Bank
+	CurrentBankIndex BankIndex
 
 	Banks BankList
 
@@ -363,6 +488,8 @@ type SequencerContext struct {
 	Steps StepList
 
 	SecondsPerStep Seconds // 每一步的时长, 由 bpm 和 tempo 计算所得
+	SecondsPerBeat Seconds // 每一拍的时长, 由 bpm 和 tempo 计算所得
+	StepsPerBeat   uint8   // 每一拍包含的步数
 
 	TotalSteps StepCount //  总步数@work.timeline
 

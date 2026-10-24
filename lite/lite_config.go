@@ -5,7 +5,8 @@ type Configuration struct {
 
 	SampleRate int
 
-	BPM BPM
+	BPM   BPM
+	Tempo Tempo
 
 	CountBankMax  uint
 	CountStepMax  uint
@@ -17,9 +18,11 @@ func DefaultConfig() *Configuration {
 	cfg := new(Configuration)
 	driver := NewMockDriver()
 
+	cfg.Driver = driver
 	cfg.SampleRate = 44100
 	cfg.BPM = 100
-	cfg.Driver = driver
+	cfg.Tempo.Upper = 4
+	cfg.Tempo.Lower = 4
 
 	cfg.CountBankMax = 16
 	cfg.CountStepMax = 32

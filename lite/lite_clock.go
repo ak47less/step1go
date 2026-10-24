@@ -4,8 +4,9 @@ package lite
 // Sequencer - clock
 
 type ClockContext struct {
-	Current TimePoint // at work-timeline
+	Current RelativePosition // at work-timeline
 
+	CurrentStepCount StepCount
 	CurrentStepIndex StepIndex
 	CurrentStepHead  *StepHead
 	CurrentStepBody  *StepBody

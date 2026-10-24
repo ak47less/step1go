@@ -40,6 +40,8 @@ type ScaleMode = common.ScaleMode
 
 type BPM = common.BPM //  beats per minute
 
+type Tempo = common.Tempo
+
 type Seconds = common.Seconds
 
 ////////////////////////////////////////////////////////////////////////////////
