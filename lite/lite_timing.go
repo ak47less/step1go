@@ -24,14 +24,32 @@ type Timeline struct {
 func (inst *Timeline) HasSameRoot(other *Timeline) bool {
 	r1 := inst.GetRoot()
 	r2 := other.GetRoot()
-	return r1.Equals(r2)
+	return r1.Same(r2)
+}
+
+func (inst *Timeline) Same(other *Timeline) bool {
+	return inst == other
 }
 
 func (inst *Timeline) Equals(other *Timeline) bool {
-
-	// todo
-
-	return false
+	if inst == nil || other == nil {
+		return false
+	}
+	if inst == other {
+		return true
+	}
+	if inst.Label != other.Label ||
+		inst.Offset != other.Offset ||
+		inst.Length != other.Length ||
+		inst.BPM != other.BPM ||
+		inst.Tempo != other.Tempo ||
+		inst.Loop != other.Loop {
+		return false
+	}
+	if inst.Parent == nil || other.Parent == nil {
+		return inst.Parent == other.Parent
+	}
+	return inst.Parent.Equals(other.Parent)
 }
 
 func (inst *Timeline) GetRoot() *Timeline {
