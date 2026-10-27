@@ -21,6 +21,31 @@ type Timeline struct {
 	Loop bool
 }
 
+func (inst *Timeline) Init() *Timeline {
+
+	if inst == nil {
+		inst = new(Timeline)
+	}
+
+	up := inst.Tempo.Upper
+	lo := inst.Tempo.Lower
+
+	if up == 0 && lo == 0 && inst.Parent == nil {
+
+		inst.BPM = 100
+		inst.Label = "default"
+		inst.Length = 100
+		inst.Loop = false
+		inst.Offset = 0
+		inst.Parent = nil
+
+		inst.Tempo.Upper = 4
+		inst.Tempo.Lower = 4
+	}
+
+	return inst
+}
+
 func (inst *Timeline) HasSameRoot(other *Timeline) bool {
 	r1 := inst.GetRoot()
 	r2 := other.GetRoot()

@@ -2,6 +2,7 @@ package lite
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -44,6 +45,17 @@ type EngineState struct {
 	Stopping bool
 	Stopped  bool
 	Started  bool
+}
+
+func (inst *EngineState) String() string {
+	if inst == nil {
+		return ""
+	}
+	s1 := inst.Starting
+	s2 := inst.Started
+	s3 := inst.Stopping
+	s4 := inst.Stopped
+	return fmt.Sprintf("engine.[state starting:%v started:%v stopping:%v stopped:%v]", s1, s2, s3, s4)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -183,6 +195,8 @@ func sameClockListener(a ClockListener, b ClockListener) bool {
 // Context : the engine-Context
 type Context struct {
 	Configuration *Configuration
+
+	Logger Logger
 
 	Engine Engine
 

@@ -11,6 +11,8 @@ type Configuration struct {
 	CountBankMax  uint
 	CountStepMax  uint
 	CountTrackMax uint
+
+	Monitor bool
 }
 
 func DefaultConfig() *Configuration {
@@ -27,6 +29,8 @@ func DefaultConfig() *Configuration {
 	cfg.CountBankMax = 16
 	cfg.CountStepMax = 32
 	cfg.CountTrackMax = 16
+
+	cfg.Monitor = false
 
 	return cfg
 }

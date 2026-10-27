@@ -8,7 +8,6 @@ func main() {
 
 	err := lite.Run(nil)
 	if err != nil {
-		// fmt.Println("error: ", err.Error())
 		panic(err)
 	}
 

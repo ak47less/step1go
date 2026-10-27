@@ -92,6 +92,10 @@ func (inst *innerSequencerTrigger) OnClock(ce *ClockEvent) error {
 
 		step := inst.innerGetStep(count, allSteps)
 
+		if step == nil {
+			continue
+		}
+
 		cc.CurrentStepIndex = step.Head.Index
 		cc.CurrentStepHead = step.Head
 		cc.CurrentStepBody = step.Body

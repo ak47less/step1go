@@ -61,6 +61,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.Timer = timer
 	ctx.TimerHandler = trans.ontimer
 	ctx.Clock = clock
+	ctx.Logger = Log()
 
 	seq, err := seqfactory.CreateSequencer(ctx)
 	if err != nil {
@@ -140,10 +141,17 @@ func (inst *innerEngine) Start() error {
 	ctx := inst.context
 	timer := ctx.Timer
 	ac := ctx.AudioContext
+	cfg := ctx.Configuration
 
 	ctx.State.Starting = true
 	ac.Resume()
 	timer.Start()
+
+	if cfg.Monitor {
+		mon := new(Monitor)
+		mon.Init(ctx)
+		mon.Start()
+	}
 
 	return nil
 }
