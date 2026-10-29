@@ -19,6 +19,11 @@ const (
 	malgoDefaultGain                         = 1.0
 	malgoDefaultPlaybackRate                 = 1.0
 	malgoMaxRenderDepth                      = 128
+
+	// Leave a small amount of headroom at the destination so that rounding and
+	// inter-sample peaks cannot reach full scale.
+	malgoBusCeiling        lite.SampleValue = 0.98
+	malgoBusReleaseSeconds                  = 0.25
 )
 
 var (
@@ -98,6 +103,7 @@ type MalgoAudioContext struct {
 	destination *malgoAudioDestinationNode
 	inputs      map[lite.AudioNode][]lite.AudioNode
 	sources     map[*malgoSourceSchedule]struct{}
+	busLimiter  malgoBusLimiter
 }
 
 func newMalgoAudioContext(mc *malgo.AllocatedContext) *MalgoAudioContext {
@@ -578,7 +584,76 @@ func (inst *malgoAudioDestinationNode) renderSignal(
 ) [][]lite.SampleValue {
 
 	inputs := inst.ctx.renderInputs(inst.owner, startTime, frameCount, depth+1, visiting)
-	return mixSignals(inputs, frameCount, malgoDefaultChannelCount)
+	output := mixSignals(inputs, frameCount, malgoDefaultChannelCount)
+	return inst.ctx.busLimiter.process(output, inst.ctx.sampleRate)
+}
+
+// malgoBusLimiter prevents summed signals from clipping at the destination.
+// It applies one linked gain to all channels for a render block. Peaks are
+// attacked immediately; after they fall, gain is restored linearly.
+type malgoBusLimiter struct {
+	mu   sync.Mutex
+	gain lite.SampleValue
+}
+
+func (inst *malgoBusLimiter) process(
+	signal [][]lite.SampleValue,
+	sampleRate lite.SampleRate,
+) [][]lite.SampleValue {
+	if len(signal) == 0 {
+		return signal
+	}
+
+	peak := lite.SampleValue(0)
+	for _, channel := range signal {
+		for _, sample := range channel {
+			absolute := lite.SampleValue(math.Abs(float64(sample)))
+			if absolute > peak {
+				peak = absolute
+			}
+		}
+	}
+
+	target := lite.SampleValue(1)
+	if peak > malgoBusCeiling {
+		target = malgoBusCeiling / peak
+	}
+
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+
+	if inst.gain <= 0 || inst.gain > 1 {
+		inst.gain = 1
+	}
+	if target < inst.gain {
+		// Immediate attack is required here because this callback renders the
+		// entire block before it is written to the device.
+		inst.gain = target
+	}
+
+	releaseSamples := int(float64(sampleRate) * malgoBusReleaseSeconds)
+	if releaseSamples < 1 {
+		releaseSamples = 1
+	}
+	releaseStep := lite.SampleValue(0)
+	if inst.gain < target {
+		releaseStep = (target - inst.gain) / lite.SampleValue(releaseSamples)
+	}
+
+	for frame := 0; frame < len(signal[0]); frame++ {
+		if releaseStep > 0 {
+			inst.gain += releaseStep
+			if inst.gain > target {
+				inst.gain = target
+			}
+		}
+		for channel := range signal {
+			if frame < len(signal[channel]) {
+				signal[channel][frame] *= inst.gain
+			}
+		}
+	}
+	return signal
 }
 
 func signalChannelCount(signals [][][]lite.SampleValue) int {

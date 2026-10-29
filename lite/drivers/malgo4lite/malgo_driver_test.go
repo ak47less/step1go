@@ -223,6 +223,54 @@ func TestMalgoBufferSourcePlayback(t *testing.T) {
 	}
 }
 
+func TestMalgoDestinationPreventsPolyphonicClipping(t *testing.T) {
+	ctx := newRunningTestContext(t)
+	frameCount := 256
+	pattern := []lite.SampleValue{0.75, 0.375, 0, -0.375, -0.75}
+	buffer := ctx.CreateBuffer(1, lite.SampleCount(frameCount), ctx.GetSampleRate())
+	for i := range buffer.GetChannelData(0) {
+		buffer.GetChannelData(0)[i] = pattern[i%len(pattern)]
+	}
+
+	sources := make([]lite.AudioBufferSourceNode, malgoDefaultChannelCount)
+	for i := range sources {
+		sources[i] = ctx.CreateBufferSource()
+		sources[i].SetBuffer(buffer)
+		sources[i].Connect(ctx.GetDestination())
+		sources[i].Start(0)
+	}
+
+	output := renderTestFrames(t, ctx, frameCount)
+	busGain := float64(malgoBusCeiling) / 1.5
+	for frame := 0; frame < frameCount; frame++ {
+		want := float32(float64(pattern[frame%len(pattern)]) * 2 * busGain)
+		for channel := 0; channel < malgoDefaultChannelCount; channel++ {
+			sample := output[frame*malgoDefaultChannelCount+channel]
+			requireFloat32Near(t, sample, want)
+			if math.Abs(float64(sample)) > float64(malgoBusCeiling) {
+				t.Fatalf("frame %d channel %d = %f exceeds bus ceiling %f", frame, channel, sample, malgoBusCeiling)
+			}
+		}
+	}
+}
+
+func TestMalgoDestinationLeavesNormalSignalUnchanged(t *testing.T) {
+	ctx := newRunningTestContext(t)
+	buffer := ctx.CreateBuffer(1, 8, ctx.GetSampleRate())
+	copy(buffer.GetChannelData(0), []lite.SampleValue{0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.7, -0.8})
+
+	source := ctx.CreateBufferSource()
+	source.SetBuffer(buffer)
+	source.Connect(ctx.GetDestination())
+	source.Start(0)
+
+	output := renderTestFrames(t, ctx, 8)
+	for frame, value := range buffer.GetChannelData(0) {
+		requireFloat32Near(t, output[frame*malgoDefaultChannelCount], float32(value))
+		requireFloat32Near(t, output[frame*malgoDefaultChannelCount+1], float32(value))
+	}
+}
+
 func TestMalgoScheduledSourceStop(t *testing.T) {
 	ctx := newRunningTestContext(t)
 	source := ctx.CreateBufferSource()
