@@ -3,21 +3,24 @@ package lite
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
 type TcpController struct {
-	context   *EngineContext
-	monitor   *Monitor
-	keymap    map[rune]Action
+	context *EngineContext
+	monitor *Monitor
+
 	actionCtl ActionController
+
+	keymap map[KeyCode]*ActionHolder
 }
 
 func (inst *TcpController) init() {
 
 	ec := inst.context
 	ctrl := NewActionController(ec)
-	km := make(map[rune]Action)
+	km := make(map[KeyCode]*ActionHolder)
 
 	inst.initKeyMap(km)
 
@@ -25,7 +28,7 @@ func (inst *TcpController) init() {
 	inst.actionCtl = ctrl
 }
 
-func (inst *TcpController) initKeyMap(km map[rune]Action) {
+func (inst *TcpController) initKeyMap(km map[KeyCode]*ActionHolder) {
 
 	km['p'] = ActionPlay
 	km['s'] = ActionStop
@@ -34,6 +37,10 @@ func (inst *TcpController) initKeyMap(km map[rune]Action) {
 	km['='] = ActionPause
 
 }
+
+func (inst *TcpController) initKeyMapToControl(km map[KeyCode]*ActionHolder) {}
+
+func (inst *TcpController) initKeyMapToNote(km map[KeyCode]*ActionHolder) {}
 
 func (inst *TcpController) Start() {
 
@@ -76,48 +83,156 @@ func (inst *TcpController) innerHasStop() bool {
 	return ((!stat.Starting) && stat.Stopped && stat.Stopping)
 }
 
-func (inst *TcpController) handleKeyInput(keycode byte) error {
-	act, err := inst.innerGetActionByCode(keycode)
+func (inst *TcpController) handleKeyCommand(cmd string) error {
+
+	kalist, err := inst.innerParseKeyActionCommand(cmd)
 	if err != nil {
 		return err
 	}
-	return inst.actionCtl.Execute(act)
-}
 
-func (inst *TcpController) innerGetActionByCode(keycode byte) (Action, error) {
-
-	table := inst.keymap
-	ch := rune(keycode)
-
-	if 'A' <= ch && ch <= 'Z' {
-		ch = ch - 'A' + 'a'
-	}
-
-	if table != nil {
-		act := table[ch]
-		if act > 0 {
-			return act, nil
+	for _, ka := range kalist {
+		err = inst.handleKeyAction(ka)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	return 0, fmt.Errorf("no item [%s] in key-map", string(ch))
+func (inst *TcpController) innerParseActionX(src *KeyAction, dst *ActionHolder) error {
+
+	if inst == nil || src == nil || dst == nil {
+		return fmt.Errorf("param(s) is nil")
+	}
+
+	action := src.Action
+	code := src.KeyCode
+	ah := inst.keymap[code]
+
+	if ah == nil {
+		return fmt.Errorf("no action info register for keycode: %d", code)
+	}
+
+	if ah.NoteAction != nil {
+
+		// as a note-action
+		na2 := new(NoteAction)
+		*na2 = *ah.NoteAction
+
+		if src.KeyDown {
+			action = ActionNoteOn
+		}
+		if src.KeyUp {
+			action = ActionNoteOff
+		}
+
+		na2.Action = action
+		dst.Action = action
+		dst.NoteAction = na2
+	}
+
+	dst.Action = action
+	dst.KeyAction = src
+
+	return nil
+}
+
+func (inst *TcpController) handleKeyAction(a1 *KeyAction) error {
+
+	ah := new(ActionHolder)
+	err := inst.innerParseActionX(a1, ah)
+	if err != nil {
+		return err
+	}
+
+	return inst.actionCtl.Execute(ah)
+}
+
+func (inst *TcpController) innerParseKeyCode(ka *KeyAction) {
+	name := ka.KeyName
+	if len(name) == 1 {
+		code := name[0]
+		ka.KeyCode = KeyCode(code)
+		return
+	}
+
+	// find in map:
+
+}
+
+func (inst *TcpController) innerParseKeyActionCommand(cmd string) ([]*KeyAction, error) {
+	const (
+		s1  = '\t'
+		s2  = ' '
+		sep = "\n"
+	)
+	cmd = strings.ReplaceAll(cmd, string(s1), sep)
+	cmd = strings.ReplaceAll(cmd, string(s2), sep)
+	words := strings.Split(cmd, sep)
+	index := 0
+	k0 := new(KeyAction) // the prototype
+	results := make([]*KeyAction, 0)
+
+	for _, word := range words {
+		if word == "" {
+			continue
+		}
+		if index < 1 {
+			switch word {
+			case "kd":
+				k0.Action = ActionKeyDown
+				k0.KeyDown = true
+			case "ku":
+				k0.Action = ActionKeyUp
+				k0.KeyUp = true
+			default:
+				return nil, fmt.Errorf("bad key-action-command: '%s'", word)
+			}
+		} else {
+			k2 := k0.Clone()
+			k2.KeyName = word
+			inst.innerParseKeyCode(k2)
+			results = append(results, k2)
+		}
+		index++
+	}
+
+	return results, nil
 }
 
 func (inst *TcpController) innerRunReadLoop(conn net.Conn) error {
 
-	var buffer [1]byte
+	const (
+		nl         = '\n'
+		cr         = '\r'
+		maxlinelen = 64
+	)
+
+	buffer := new(strings.Builder)
+	var buf [1]byte
 
 	for {
 		if inst.innerHasStop() {
 			break
 		}
-		cnt, err := conn.Read(buffer[:])
+
+		cnt, err := conn.Read(buf[:])
+
 		if err == nil && cnt == 1 {
-			code := buffer[0]
-			err = inst.handleKeyInput(code)
+			b := buf[0]
+			if b == nl || b == cr {
+				cmd := buffer.String()
+				err = inst.handleKeyCommand(cmd)
+				buffer.Reset()
+			} else if buffer.Len() < maxlinelen {
+				buffer.WriteByte(b)
+			}
+		}
+
+		if err != nil {
 			handleError(err)
-		} else {
 			time.Sleep(time.Second)
+			err = nil
 		}
 	}
 

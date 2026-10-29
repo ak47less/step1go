@@ -2,14 +2,58 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ak47less/step1go/lite-tui/gui"
 )
 
 func main() {
+
+	app := new(App)
+	err := app.run()
+	if err != nil {
+		panic(err)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type App struct {
+	context *gui.Context
+}
+
+func (inst *App) dispatchKeyActionCommand(key *fyne.KeyEvent, cmd_word string) error {
+
+	ctx := inst.context
+	ses, err := ctx.GetSession()
+
+	if err != nil {
+		return err
+	}
+
+	name := key.Name
+	cline := fmt.Sprintln(cmd_word, " ", name)
+	cline = strings.ToLower(cline)
+
+	return ses.SendCommand(cline)
+}
+
+func (inst *App) handleKeyEvent(key *fyne.KeyEvent, cmd_word string) {
+
+	err := inst.dispatchKeyActionCommand(key, cmd_word)
+	if err != nil {
+		ctx := inst.context
+		logger := ctx.GetLogger()
+		logger.Error(err.Error())
+	}
+
+}
+
+func (inst *App) run() error {
 
 	fmt.Println("hello, gui")
 	text := "aaa\nbbb\n\tccc"
@@ -21,10 +65,11 @@ func main() {
 
 	ctx.Init()
 	km.init()
+	inst.context = ctx
 
 	err := ctx.GetServer().Start()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	size := fyne.Size{
@@ -34,26 +79,51 @@ func main() {
 
 	myWindow.SetContent(label)
 	myWindow.Resize(size)
-	myWindow.Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
 
-		code := km.Map(ke.Name)
-		logger := ctx.GetLogger()
-		stat := ctx.GetStatus()
+	// older
 
-		stat.PressKeyCode = code
-		stat.PressKeyCount++
+	// myWindow.Canvas().SetOnTypedKey(func(ke *fyne.KeyEvent) {
 
-		text = stat.String()
+	// 	code := km.Map(ke.Name)
+	// 	logger := ctx.GetLogger()
+	// 	stat := ctx.GetStatus()
 
-		ses, err := ctx.GetSession()
-		if err == nil && ses != nil {
-			err = ses.DispatchKeyPress(code)
-		}
-		ctx.HandleError(err)
+	// 	stat.PressKeyCode = code
+	// 	stat.PressKeyCount++
 
-		label.SetText(text)
-		logger.Info("status: %s", text)
-	})
+	// 	text = stat.String()
+
+	// 	ses, err := ctx.GetSession()
+	// 	if err == nil && ses != nil {
+	// 		err = ses.DispatchKeyPress(code)
+	// 	}
+	// 	ctx.HandleError(err)
+
+	// 	label.SetText(text)
+	// 	logger.Info("status: %s", text)
+	// })
+
+	// newer
+
+	if deskCanvas, ok := myWindow.Canvas().(desktop.Canvas); ok {
+		// 设置按键按下时的回调
+		deskCanvas.SetOnKeyDown(func(key *fyne.KeyEvent) {
+			// fmt.Printf("Key Down: %s\n", key.Name)
+			// label.SetText(fmt.Sprintf("Key Down: %s", key.Name))
+			inst.handleKeyEvent(key, "kd")
+		})
+
+		// 设置按键释放时的回调
+		deskCanvas.SetOnKeyUp(func(key *fyne.KeyEvent) {
+			// fmt.Printf("Key Up: %s\n", key.Name)
+			// label.SetText(fmt.Sprintf("Key Up: %s", key.Name))
+			inst.handleKeyEvent(key, "ku")
+		})
+	} else {
+		return fmt.Errorf("Current canvas does not support desktop key events.")
+	}
+
+	//////////////////
 
 	text = ctx.GetStatus().String()
 	fmt.Print(text)
@@ -61,6 +131,7 @@ func main() {
 
 	myWindow.ShowAndRun()
 
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////

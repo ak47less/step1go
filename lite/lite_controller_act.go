@@ -1,30 +1,16 @@
 package lite
 
-import "fmt"
-
-////////////////////////////////////////////////////////////////////////////////
-
-type Action int
-
-const (
-	ActionMin Action = iota
-
-	ActionPlay
-	ActionStop
-	ActionPause
-	ActionResume
-	ActionRecord
-
-	ActionStartEngine
-	ActionStopEngine
-
-	ActionExample
-	ActionMax
+import (
+	"fmt"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type innerActionHandlerFunc func(ec *EngineContext) error
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+
+type innerActionHandlerFunc func(ec *EngineContext, ah *ActionHolder) error
 
 type innerActionHandlerInfo struct {
 	action  Action
@@ -37,7 +23,7 @@ type innerActionHandlerInfo struct {
 type ActionController interface {
 	Controller
 
-	Execute(a Action) error
+	Execute(ah *ActionHolder) error
 }
 
 func NewActionController(ec *EngineContext) ActionController {
@@ -81,17 +67,18 @@ func (inst *innerActionController) addHandler(action Action, label string, h inn
 }
 
 // Execute implements [ActionController].
-func (inst *innerActionController) Execute(a Action) error {
+func (inst *innerActionController) Execute(ah *ActionHolder) error {
 
-	info := inst.table[a]
+	action := ah.Action
+	info := inst.table[action]
 
 	if info == nil {
-		return fmt.Errorf("no handler with action [%v]", a)
+		return fmt.Errorf("no handler with action [%v]", action)
 	}
 
 	ec := inst.context
 	fn := info.handler
-	return fn(ec)
+	return fn(ec, ah)
 }
 
 // Start implements [ActionController].
@@ -104,27 +91,27 @@ func (inst *innerActionController) Start() {
 type innerActionHandlerSet struct {
 }
 
-func (inst *innerActionHandlerSet) example(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) example(ec *EngineContext, ah *ActionHolder) error {
 	return nil
 }
 
-func (inst *innerActionHandlerSet) play(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) play(ec *EngineContext, ah *ActionHolder) error {
 	return ec.Transport.Play()
 }
 
-func (inst *innerActionHandlerSet) stop(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) stop(ec *EngineContext, ah *ActionHolder) error {
 	return ec.Transport.Stop()
 }
 
-func (inst *innerActionHandlerSet) record(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) record(ec *EngineContext, ah *ActionHolder) error {
 	return ec.Transport.Record()
 }
 
-func (inst *innerActionHandlerSet) pause(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) pause(ec *EngineContext, ah *ActionHolder) error {
 	return ec.Transport.Pause()
 }
 
-func (inst *innerActionHandlerSet) resume(ec *EngineContext) error {
+func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionHolder) error {
 	return ec.Transport.Resume()
 }
 

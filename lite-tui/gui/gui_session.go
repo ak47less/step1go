@@ -26,17 +26,13 @@ func (inst *Session) Init(ctx *Context, conn *net.TCPConn) error {
 	return nil
 }
 
-func (inst *Session) DispatchKeyPress(ascii byte) error {
-
-	var buffer [2]byte
-	b := buffer[0:1]
-	b[0] = ascii
-
-	// stat := inst.context.GetStatus()
-	// stat.pressKeyCode = ascii
-	// stat.pressKeyCount++
-
+func (inst *Session) SendCommand(cmd string) error {
+	b := []byte(cmd)
 	_, err := inst.writer.Write(b)
+
+	logger := inst.context.logger
+	logger.Info("send_command: %s", cmd)
+
 	return err
 }
 

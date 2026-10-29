@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ak47less/step1go/lite"
+	"github.com/ak47less/step1go/lite/instruments/simplesynth"
 )
 
 func main() {
@@ -12,7 +13,12 @@ func main() {
 		URL: "tcp://localhost:33309/",
 	}
 
-	cfg.InstrumentFactory = nil
+	ssfactory := new(simplesynth.SimpleSynthFactory)
+	insfr := new(lite.InstrumentFactoryRegistry)
+	insfr.Register(ssfactory)
+	insfr.SetDefault(ssfactory)
+
+	cfg.InstrumentFactory = insfr
 
 	err = lite.Run(cfg)
 	if err != nil {
