@@ -2,15 +2,13 @@ package lite
 
 import (
 	"fmt"
+
+	"github.com/ak47less/step1go/common"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////
-
-type innerActionHandlerFunc func(ec *EngineContext, ah *ActionHolder) error
+type innerActionHandlerFunc func(ec *EngineContext, ae *ActionEvent) error
 
 type innerActionHandlerInfo struct {
 	action  Action
@@ -23,7 +21,7 @@ type innerActionHandlerInfo struct {
 type ActionController interface {
 	Controller
 
-	Execute(ah *ActionHolder) error
+	Execute(ae *ActionEvent) error
 }
 
 func NewActionController(ec *EngineContext) ActionController {
@@ -47,13 +45,16 @@ func (inst *innerActionController) init(ctx *EngineContext) {
 	inst.table = tab
 	inst.context = ctx
 
-	inst.addHandler(ActionExample, "Example", hs.example)
+	inst.addHandler(common.ActionMin, "example", hs.example)
 
-	inst.addHandler(ActionPlay, "Play", hs.play)
-	inst.addHandler(ActionStop, "Stop", hs.stop)
-	inst.addHandler(ActionResume, "Resume", hs.resume)
-	inst.addHandler(ActionPause, "Pause", hs.pause)
-	inst.addHandler(ActionRecord, "Record", hs.record)
+	inst.addHandler(common.ActionPlay, "Play", hs.play)
+	inst.addHandler(common.ActionStop, "Stop", hs.stop)
+	inst.addHandler(common.ActionResume, "Resume", hs.resume)
+	inst.addHandler(common.ActionPause, "Pause", hs.pause)
+	inst.addHandler(common.ActionRecord, "Record", hs.record)
+
+	inst.addHandler(common.ActionNoteOn, "NoteOn", hs.noteOn)
+	inst.addHandler(common.ActionNoteOff, "NoteOff", hs.noteOff)
 
 }
 
@@ -67,9 +68,9 @@ func (inst *innerActionController) addHandler(action Action, label string, h inn
 }
 
 // Execute implements [ActionController].
-func (inst *innerActionController) Execute(ah *ActionHolder) error {
+func (inst *innerActionController) Execute(ae *ActionEvent) error {
 
-	action := ah.Action
+	action := ae.Action
 	info := inst.table[action]
 
 	if info == nil {
@@ -78,7 +79,7 @@ func (inst *innerActionController) Execute(ah *ActionHolder) error {
 
 	ec := inst.context
 	fn := info.handler
-	return fn(ec, ah)
+	return fn(ec, ae)
 }
 
 // Start implements [ActionController].
@@ -91,28 +92,36 @@ func (inst *innerActionController) Start() {
 type innerActionHandlerSet struct {
 }
 
-func (inst *innerActionHandlerSet) example(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) example(ec *EngineContext, ah *ActionEvent) error {
 	return nil
 }
 
-func (inst *innerActionHandlerSet) play(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) play(ec *EngineContext, ah *ActionEvent) error {
 	return ec.Transport.Play()
 }
 
-func (inst *innerActionHandlerSet) stop(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) stop(ec *EngineContext, ah *ActionEvent) error {
 	return ec.Transport.Stop()
 }
 
-func (inst *innerActionHandlerSet) record(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) record(ec *EngineContext, ah *ActionEvent) error {
 	return ec.Transport.Record()
 }
 
-func (inst *innerActionHandlerSet) pause(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) pause(ec *EngineContext, ah *ActionEvent) error {
 	return ec.Transport.Pause()
 }
 
-func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionHolder) error {
+func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionEvent) error {
 	return ec.Transport.Resume()
+}
+
+func (inst *innerActionHandlerSet) noteOn(ec *EngineContext, ah *ActionEvent) error {
+	return fmt.Errorf("todo: no impl")
+}
+
+func (inst *innerActionHandlerSet) noteOff(ec *EngineContext, ah *ActionEvent) error {
+	return fmt.Errorf("todo: no impl")
 }
 
 ////////////////////////////////////////////////////////////////////////////////

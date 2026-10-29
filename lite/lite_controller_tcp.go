@@ -5,42 +5,58 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/ak47less/step1go/common"
 )
 
 type TcpController struct {
 	context *EngineContext
 	monitor *Monitor
+	keymap  *common.ComputerKeyMap
 
-	actionCtl ActionController
-
-	keymap map[KeyCode]*ActionHolder
+	inner ActionController
 }
 
 func (inst *TcpController) init() {
 
 	ec := inst.context
 	ctrl := NewActionController(ec)
-	km := make(map[KeyCode]*ActionHolder)
+	kmb := new(common.ComputerKeyMapBuilder)
 
-	inst.initKeyMap(km)
+	inst.initKeyMap(kmb)
 
-	inst.keymap = km
-	inst.actionCtl = ctrl
+	inst.keymap = kmb.Build()
+	inst.inner = ctrl
 }
 
-func (inst *TcpController) initKeyMap(km map[KeyCode]*ActionHolder) {
+func (inst *TcpController) initKeyMap(b *common.ComputerKeyMapBuilder) {
 
-	km['p'] = ActionPlay
-	km['s'] = ActionStop
-	km['r'] = ActionRecord
-	km['-'] = ActionResume
-	km['='] = ActionPause
+	// transport
+
+	b.MapKeyName("p").ToControl(common.ActionPlay)
+	b.MapKeyName("s").ToControl(common.ActionStop)
+	b.MapKeyName("r").ToControl(common.ActionRecord)
+	b.MapKeyName("l").ToControl(common.ActionLoop)
+
+	b.MapKeyCode(common.CKeyCodeSpace).ToControl(common.ActionResume)
+	b.MapKeyCode(common.CKeyCodeSpace).ToControl(common.ActionPause)
+
+	// 12-tones
+
+	b.MapKeyCode(common.CKeyCode1).ToNote(60)
+	b.MapKeyCode(common.CKeyCode2).ToNote(61)
+	b.MapKeyCode(common.CKeyCode3).ToNote(62)
+	b.MapKeyCode(common.CKeyCode4).ToNote(63)
+	b.MapKeyCode(common.CKeyCode5).ToNote(64)
+	b.MapKeyCode(common.CKeyCode6).ToNote(65)
+	b.MapKeyCode(common.CKeyCode7).ToNote(66)
+	b.MapKeyCode(common.CKeyCode8).ToNote(67)
+	b.MapKeyCode(common.CKeyCode9).ToNote(68)
+	b.MapKeyCode(common.CKeyCode0).ToNote(69)
+	b.MapKeyName(common.CKeyNameMinus).ToNote(70)
+	b.MapKeyName(common.CKeyNameEqual).ToNote(71)
 
 }
-
-func (inst *TcpController) initKeyMapToControl(km map[KeyCode]*ActionHolder) {}
-
-func (inst *TcpController) initKeyMapToNote(km map[KeyCode]*ActionHolder) {}
 
 func (inst *TcpController) Start() {
 
@@ -83,121 +99,106 @@ func (inst *TcpController) innerHasStop() bool {
 	return ((!stat.Starting) && stat.Stopped && stat.Stopping)
 }
 
-func (inst *TcpController) handleKeyCommand(cmd string) error {
-
-	kalist, err := inst.innerParseKeyActionCommand(cmd)
-	if err != nil {
-		return err
-	}
-
-	for _, ka := range kalist {
-		err = inst.handleKeyAction(ka)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (inst *TcpController) innerParseActionX(src *KeyAction, dst *ActionHolder) error {
-
-	if inst == nil || src == nil || dst == nil {
-		return fmt.Errorf("param(s) is nil")
-	}
-
-	action := src.Action
-	code := src.KeyCode
-	ah := inst.keymap[code]
-
-	if ah == nil {
-		return fmt.Errorf("no action info register for keycode: %d", code)
-	}
-
-	if ah.NoteAction != nil {
-
-		// as a note-action
-		na2 := new(NoteAction)
-		*na2 = *ah.NoteAction
-
-		if src.KeyDown {
-			action = ActionNoteOn
-		}
-		if src.KeyUp {
-			action = ActionNoteOff
-		}
-
-		na2.Action = action
-		dst.Action = action
-		dst.NoteAction = na2
-	}
-
-	dst.Action = action
-	dst.KeyAction = src
-
-	return nil
-}
-
-func (inst *TcpController) handleKeyAction(a1 *KeyAction) error {
-
-	ah := new(ActionHolder)
-	err := inst.innerParseActionX(a1, ah)
-	if err != nil {
-		return err
-	}
-
-	return inst.actionCtl.Execute(ah)
-}
-
-func (inst *TcpController) innerParseKeyCode(ka *KeyAction) {
-	name := ka.KeyName
-	if len(name) == 1 {
-		code := name[0]
-		ka.KeyCode = KeyCode(code)
-		return
-	}
-
-	// find in map:
-
-}
-
-func (inst *TcpController) innerParseKeyActionCommand(cmd string) ([]*KeyAction, error) {
+func (inst *TcpController) innerParseKeyCommand(cmd string) ([]*common.ComputerKeyMapping, error) {
 	const (
-		s1  = '\t'
-		s2  = ' '
+		ch1 = ' '
+		ch2 = '\t'
 		sep = "\n"
 	)
-	cmd = strings.ReplaceAll(cmd, string(s1), sep)
-	cmd = strings.ReplaceAll(cmd, string(s2), sep)
-	words := strings.Split(cmd, sep)
-	index := 0
-	k0 := new(KeyAction) // the prototype
-	results := make([]*KeyAction, 0)
+	cmd = strings.ReplaceAll(cmd, string(ch1), sep)
+	cmd = strings.ReplaceAll(cmd, string(ch2), sep)
 
-	for _, word := range words {
-		if word == "" {
+	words := strings.Split(cmd, sep)
+	mp1 := new(common.ComputerKeyMapping)
+	result := make([]*common.ComputerKeyMapping, 0)
+	index := 0
+
+	for _, w := range words {
+		if len(w) == 0 {
 			continue
 		}
-		if index < 1 {
-			switch word {
-			case "kd":
-				k0.Action = ActionKeyDown
-				k0.KeyDown = true
-			case "ku":
-				k0.Action = ActionKeyUp
-				k0.KeyUp = true
-			default:
-				return nil, fmt.Errorf("bad key-action-command: '%s'", word)
-			}
+		if index == 0 {
+			inst.innerInitMapping(mp1, w)
 		} else {
-			k2 := k0.Clone()
-			k2.KeyName = word
-			inst.innerParseKeyCode(k2)
-			results = append(results, k2)
+			inst.innerUpdateMapping(mp1, w)
+			mp2 := inst.innerCloneMapping(mp1)
+			result = append(result, mp2)
 		}
 		index++
 	}
 
-	return results, nil
+	return result, nil
+}
+
+func (inst *TcpController) innerInitMapping(mp *common.ComputerKeyMapping, word string) {
+
+	if inst == nil || mp == nil {
+		return
+	}
+
+	mp.FlagKeyUp = false
+	mp.FlagKeyDown = false
+
+	switch word {
+
+	// key-down
+
+	case "kd":
+		mp.FlagKeyDown = true
+	case "down":
+		mp.FlagKeyDown = true
+
+		// key-up
+
+	case "ku":
+		mp.FlagKeyUp = true
+	case "up":
+		mp.FlagKeyUp = true
+	}
+}
+
+func (inst *TcpController) innerUpdateMapping(mp *common.ComputerKeyMapping, word string) {
+	mp.Name = common.ComputerKeyName(word)
+}
+
+func (inst *TcpController) innerCloneMapping(src *common.ComputerKeyMapping) *common.ComputerKeyMapping {
+	if inst == nil || src == nil {
+		return nil
+	}
+	dst := new(common.ComputerKeyMapping)
+	*dst = *src
+	return dst
+}
+
+func (inst *TcpController) handleKeyCommand(cmd string) error {
+
+	maplist, err := inst.innerParseKeyCommand(cmd)
+	if err != nil {
+		return err
+	}
+
+	for _, km := range maplist {
+		err = inst.handleKeyMapping(km)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *TcpController) handleKeyMapping(want *common.ComputerKeyMapping) error {
+
+	if inst == nil || want == nil {
+		return nil
+	}
+
+	have, err := inst.keymap.Find(want)
+	if err != nil {
+		return err
+	}
+
+	return inst.inner.Execute(have.Action)
 }
 
 func (inst *TcpController) innerRunReadLoop(conn net.Conn) error {

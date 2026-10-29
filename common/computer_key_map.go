@@ -200,7 +200,6 @@ func (inst *ComputerKeyMapping) ComputeURI(rewrite bool) ComputerKeyURI {
 	scheme := ""
 	name := inst.Name
 	code := inst.Code
-	u1 := ""
 
 	if inst.FlagKeyDown {
 		scheme = "down"
@@ -209,12 +208,13 @@ func (inst *ComputerKeyMapping) ComputeURI(rewrite bool) ComputerKeyURI {
 		scheme = "up"
 	}
 
-	if code != 0 {
-		u1 = fmt.Sprintf("%s:%s", scheme, code.String())
+	if code == 0 {
+		code = name.Code()
 	} else {
-		u1 = fmt.Sprintf("%s:%s", scheme, name.String())
+		name = code.Name()
 	}
 
+	u1 := fmt.Sprintf("%s:('%s')/%d", scheme, name, code)
 	u2 := ComputerKeyURI(u1)
 	if rewrite {
 		inst.URI = u2
