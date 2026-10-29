@@ -212,9 +212,9 @@ type Context struct {
 
 	AudioContextFactory AudioContextFactory
 
-	CurrentInstrument Instrument
-
-	MainInstrumentFactory InstrumentFactory
+	CurrentInstrument       Instrument
+	CurrentInstrumentHolder InstrumentHolder
+	MainInstrumentFactory   InstrumentFactory
 
 	Timer        *Timer
 	TimerHandler func(*Timer) error

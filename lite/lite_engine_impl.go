@@ -34,6 +34,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	seqfactory := new(innerSequencerFactory)
 	insfactory := cfg.InstrumentFactory
 	ii := new(InstrumentInfo)
+	ih := new(DefaultInstrumentHolder)
 
 	if insfactory == nil {
 		return nil, fmt.Errorf("config.InstrumentFactory is nil")
@@ -69,6 +70,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.Clock = clock
 	ctx.Logger = Log()
 	ctx.MainInstrumentFactory = insfactory
+	ctx.CurrentInstrumentHolder = ih
 
 	seq, err := seqfactory.CreateSequencer(ctx)
 	if err != nil {

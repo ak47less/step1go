@@ -18,6 +18,10 @@ type InstrumentFactory interface {
 	CreateInstrument(ctx *Context, info *InstrumentInfo) (Instrument, error)
 }
 
+type InstrumentHolder interface {
+	GetInstrument(ctx *Context) (Instrument, error)
+}
+
 type InstrumentInfo struct {
 	Name   string
 	Label  string
@@ -147,6 +151,43 @@ func (inst *InstrumentFactoryRegistry) initLocked() {
 }
 
 func (inst *InstrumentFactoryRegistry) _impl() InstrumentFactory {
+	return inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type DefaultInstrumentHolder struct {
+}
+
+// GetInstrument implements [InstrumentHolder].
+func (inst *DefaultInstrumentHolder) GetInstrument(ctx *Context) (Instrument, error) {
+
+	if ctx == nil {
+		return nil, fmt.Errorf("lite.Context is nil")
+	}
+
+	i := ctx.CurrentInstrument
+	if i != nil {
+		return i, nil
+	}
+
+	factory := ctx.MainInstrumentFactory
+	info := new(InstrumentInfo)
+
+	if factory == nil {
+		return nil, fmt.Errorf("context.MainInstrumentFactory is nil")
+	}
+
+	i, err := factory.CreateInstrument(ctx, info)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx.CurrentInstrument = i
+	return i, nil
+}
+
+func (inst *DefaultInstrumentHolder) _impl() InstrumentHolder {
 	return inst
 }
 

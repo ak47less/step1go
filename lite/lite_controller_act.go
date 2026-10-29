@@ -117,11 +117,41 @@ func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionEvent) er
 }
 
 func (inst *innerActionHandlerSet) noteOn(ec *EngineContext, ah *ActionEvent) error {
-	return fmt.Errorf("todo: no impl")
+
+	holder := ec.CurrentInstrumentHolder
+	in, err := holder.GetInstrument(ec)
+	if err != nil {
+		return err
+	}
+
+	n := &MidiNote{
+		Key:      ah.NoteNumber,
+		Velocity: ah.NoteVelocity,
+	}
+
+	msg := &MidiMessage{
+		NoteOn: n,
+	}
+	return in.Dispatch(msg)
 }
 
 func (inst *innerActionHandlerSet) noteOff(ec *EngineContext, ah *ActionEvent) error {
-	return fmt.Errorf("todo: no impl")
+
+	holder := ec.CurrentInstrumentHolder
+	in, err := holder.GetInstrument(ec)
+	if err != nil {
+		return err
+	}
+
+	n := &MidiNote{
+		Key:      ah.NoteNumber,
+		Velocity: ah.NoteVelocity,
+	}
+
+	msg := &MidiMessage{
+		NoteOff: n,
+	}
+	return in.Dispatch(msg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

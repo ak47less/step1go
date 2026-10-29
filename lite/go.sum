@@ -2,6 +2,8 @@ github.com/ak47less/step1go/common v0.0.2 h1:9ZJm1rTtjWr39QZYOGD6WSSyGmdT8lTIYfu
 github.com/ak47less/step1go/common v0.0.2/go.mod h1:sX43DA3BwEn5le+HpnMX8t1tbtSmF3qEoRkGU9xjmpw=
 github.com/ak47less/step1go/common v0.0.3 h1:LIKg2SD9D32qI70oP/cMRGQkTaK96QyGhgMRuFZZ2Pc=
 github.com/ak47less/step1go/common v0.0.3/go.mod h1:sX43DA3BwEn5le+HpnMX8t1tbtSmF3qEoRkGU9xjmpw=
+github.com/ak47less/step1go/common v0.0.4 h1:XAc6KLDDW/MjlKO3br2FuoFJTtUzJ6mVieM3b/S12/c=
+github.com/ak47less/step1go/common v0.0.4/go.mod h1:sX43DA3BwEn5le+HpnMX8t1tbtSmF3qEoRkGU9xjmpw=
 github.com/gen2brain/malgo v0.11.26 h1:k5WcPIKw1bbJAbPqrvNPt7nehPLoaPNcOFde2+eruiM=
 github.com/gen2brain/malgo v0.11.26/go.mod h1:xLVG3ROA33Bzol1quF3e4ehqcFuqh8QK4B8T6LQUs/M=
 github.com/gen2brain/malgo v0.11.27 h1:iD/VV+AYELEt1pK9O3efj3zu0p8oTA3Gp+9BWd/RNmI=

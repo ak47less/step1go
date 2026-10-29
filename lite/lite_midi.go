@@ -6,6 +6,8 @@ type MidiNote struct {
 
 	At       *Timeline
 	Position Seconds
+
+	Channel  byte
 	Key      MidiNoteNumber   // 音高
 	Velocity MidiNoteVelocity // 力度(midi.按键速度)
 }

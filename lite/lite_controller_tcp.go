@@ -158,7 +158,10 @@ func (inst *TcpController) innerInitMapping(mp *common.ComputerKeyMapping, word 
 }
 
 func (inst *TcpController) innerUpdateMapping(mp *common.ComputerKeyMapping, word string) {
-	mp.Name = common.ComputerKeyName(word)
+
+	name := common.ComputerKeyName(word)
+	mp.Name = name
+	mp.Code = name.Code()
 }
 
 func (inst *TcpController) innerCloneMapping(src *common.ComputerKeyMapping) *common.ComputerKeyMapping {

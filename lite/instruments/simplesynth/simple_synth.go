@@ -190,7 +190,7 @@ func (inst *SimpleSynth) createVoice(note *lite.MidiNote, now lite.Seconds) (*si
 		source = oscillator
 	}
 
-	level := float64(note.Velocity) / 127
+	level := float64(note.Velocity) / 256 // 127
 	if level > 1 {
 		level = 1
 	}
