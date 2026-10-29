@@ -172,7 +172,19 @@ func (inst *DefaultInstrumentHolder) GetInstrument(ctx *Context) (Instrument, er
 	}
 
 	factory := ctx.MainInstrumentFactory
-	info := new(InstrumentInfo)
+
+	// const (
+	// 	OscillatorTypeSine     OscillatorType = "sine"
+	// 	OscillatorTypeSquare   OscillatorType = "square"
+	// 	OscillatorTypeSawtooth OscillatorType = "sawtooth"
+	// 	OscillatorTypeTriangle OscillatorType = "triangle"
+	// 	OscillatorTypeCustom   OscillatorType = "custom"
+	// )
+
+	info := &InstrumentInfo{
+		Name:   "",
+		Preset: "triangle",
+	}
 
 	if factory == nil {
 		return nil, fmt.Errorf("context.MainInstrumentFactory is nil")

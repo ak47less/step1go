@@ -33,7 +33,6 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	clock := new(Clock)
 	seqfactory := new(innerSequencerFactory)
 	insfactory := cfg.InstrumentFactory
-	ii := new(InstrumentInfo)
 	ih := new(DefaultInstrumentHolder)
 
 	if insfactory == nil {
@@ -77,16 +76,6 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 		return nil, err
 	}
 	ctx.SequencerContext = seq.GetContext()
-
-	ii.Label = "default"
-	ii.Name = "default"
-	ii.Preset = "default"
-	instrument, err := insfactory.CreateInstrument(ctx, ii)
-	if err != nil {
-		ac.Close()
-		return nil, fmt.Errorf("create default instrument: %w", err)
-	}
-	ctx.CurrentInstrument = instrument
 
 	return ctx.Engine, nil
 }
