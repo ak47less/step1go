@@ -9,6 +9,8 @@ import (
 type Configuration struct {
 	Driver Driver
 
+	InstrumentFactory InstrumentFactory
+
 	SampleRate int
 
 	BPM   BPM

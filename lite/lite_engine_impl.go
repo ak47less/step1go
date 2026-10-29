@@ -32,6 +32,12 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	timer := new(Timer)
 	clock := new(Clock)
 	seqfactory := new(innerSequencerFactory)
+	insfactory := cfg.InstrumentFactory
+	ii := new(InstrumentInfo)
+
+	if insfactory == nil {
+		return nil, fmt.Errorf("config.InstrumentFactory is nil")
+	}
 
 	engine.context = ctx
 
@@ -62,12 +68,18 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.TimerHandler = trans.ontimer
 	ctx.Clock = clock
 	ctx.Logger = Log()
+	ctx.MainInstrumentFactory = insfactory
 
 	seq, err := seqfactory.CreateSequencer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ctx.SequencerContext = seq.GetContext()
+
+	ii.Label = "default"
+	ii.Name = "default"
+	ii.Preset = "default"
+	ctx.CurrentInstrument = insfactory.CreateInstrument(ctx, ii)
 
 	return ctx.Engine, nil
 }

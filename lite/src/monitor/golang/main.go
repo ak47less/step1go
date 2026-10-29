@@ -12,6 +12,8 @@ func main() {
 		URL: "tcp://localhost:33309/",
 	}
 
+	cfg.InstrumentFactory = nil
+
 	err = lite.Run(cfg)
 	if err != nil {
 		panic(err)
