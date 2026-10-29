@@ -7,18 +7,11 @@ import (
 func main() {
 
 	var err error
-
-	// fd := int(os.Stdin.Fd())
-	// oldState, err := term.MakeRaw(fd)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// defer term.Restore(fd, oldState) // 一定要恢复！
-
-	///////////////////
-
 	cfg := lite.DefaultConfig()
-	cfg.Monitor = true
+	cfg.Monitor = &lite.MonitorConfig{
+		URL: "tcp://localhost:33309/",
+	}
+
 	err = lite.Run(cfg)
 	if err != nil {
 		panic(err)

@@ -147,7 +147,7 @@ func (inst *innerEngine) Start() error {
 	ac.Resume()
 	timer.Start()
 
-	if cfg.Monitor {
+	if cfg.Monitor != nil {
 		mon := new(Monitor)
 		mon.Init(ctx)
 		mon.Start()

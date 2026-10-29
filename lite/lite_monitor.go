@@ -28,9 +28,24 @@ func (inst *Monitor) Start() {
 		Handler:  inst.ontimer,
 	}
 
-	ctrl := &Controller{
-		context: inst.context,
-		monitor: inst,
+	mocfg := inst.context.Configuration.Monitor
+	if mocfg == nil {
+		return
+	}
+	mocfg = mocfg.Prepare()
+
+	var ctrl Controller
+
+	if mocfg.Scheme == "tcp" {
+		ctrl = &TcpController{
+			context: inst.context,
+			monitor: inst,
+		}
+	} else {
+		ctrl = &StdController{
+			context: inst.context,
+			monitor: inst,
+		}
 	}
 
 	ctrl.Start()
