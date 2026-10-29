@@ -79,7 +79,12 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ii.Label = "default"
 	ii.Name = "default"
 	ii.Preset = "default"
-	ctx.CurrentInstrument = insfactory.CreateInstrument(ctx, ii)
+	instrument, err := insfactory.CreateInstrument(ctx, ii)
+	if err != nil {
+		ac.Close()
+		return nil, fmt.Errorf("create default instrument: %w", err)
+	}
+	ctx.CurrentInstrument = instrument
 
 	return ctx.Engine, nil
 }
