@@ -5,7 +5,7 @@ package common
 type Action int
 
 const (
-	ActionMin = iota
+	ActionMin Action = iota
 
 	ActionStartEngine
 	ActionStopEngine

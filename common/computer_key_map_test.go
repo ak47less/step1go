@@ -130,3 +130,142 @@ func TestComputerKeyMapAddIgnoresNil(t *testing.T) {
 	var nilMap *ComputerKeyMap
 	nilMap.Add(&ComputerKeyMapping{Code: CKeyCodeA})
 }
+
+func TestComputerKeyMapBuilderToNote(t *testing.T) {
+	builder := new(ComputerKeyMapBuilder)
+	if got := builder.MapKeyCode(CKeyCodeA); got != builder {
+		t.Fatal("MapKeyCode() did not return the builder")
+	}
+	builder.ToNote(60)
+	keyMap := builder.Build()
+
+	down, err := keyMap.Find(&ComputerKeyMapping{FlagKeyDown: true, Code: CKeyCodeA})
+	if err != nil {
+		t.Fatalf("Find(down) error = %v", err)
+	}
+	assertNoteMapping(t, down, CKeyNameA, ActionNoteOn, true, false, 60)
+
+	up, err := keyMap.Find(&ComputerKeyMapping{FlagKeyUp: true, Code: CKeyCodeA})
+	if err != nil {
+		t.Fatalf("Find(up) error = %v", err)
+	}
+	assertNoteMapping(t, up, CKeyNameA, ActionNoteOff, false, true, 60)
+}
+
+func assertNoteMapping(t *testing.T, mapping *ComputerKeyMapping, name ComputerKeyName, action Action, noteOn, noteOff bool, note MidiNoteNumber) {
+	t.Helper()
+	if mapping.Name != name {
+		t.Errorf("mapping.Name = %q, want %q", mapping.Name, name)
+	}
+	if mapping.Action == nil {
+		t.Fatal("mapping.Action is nil")
+	}
+	if mapping.Action.Action != action {
+		t.Errorf("mapping.Action.Action = %d, want %d", mapping.Action.Action, action)
+	}
+	if !mapping.Action.FlagNote {
+		t.Error("mapping.Action.FlagNote = false, want true")
+	}
+	if mapping.Action.FlagNoteOn != noteOn {
+		t.Errorf("mapping.Action.FlagNoteOn = %v, want %v", mapping.Action.FlagNoteOn, noteOn)
+	}
+	if mapping.Action.FlagNoteOff != noteOff {
+		t.Errorf("mapping.Action.FlagNoteOff = %v, want %v", mapping.Action.FlagNoteOff, noteOff)
+	}
+	if mapping.Action.NoteNumber != note {
+		t.Errorf("mapping.Action.NoteNumber = %d, want %d", mapping.Action.NoteNumber, note)
+	}
+	if mapping.Action.NoteVelocity == 0 {
+		t.Error("mapping.Action.NoteVelocity = 0, want a playable velocity")
+	}
+}
+
+func TestComputerKeyMapBuilderToControlByName(t *testing.T) {
+	builder := new(ComputerKeyMapBuilder)
+	if got := builder.MapKeyName(CKeyNameSpace); got != builder {
+		t.Fatal("MapKeyName() did not return the builder")
+	}
+	builder.ToControl(ActionPlay)
+	keyMap := builder.Build()
+
+	mapping, err := keyMap.Find(&ComputerKeyMapping{
+		FlagKeyDown: true,
+		Name:        CKeyNameSpace,
+	})
+	if err != nil {
+		t.Fatalf("Find() error = %v", err)
+	}
+	if mapping.Name != CKeyNameSpace || mapping.Code != CKeyCodeMin {
+		t.Errorf("mapping key = {%d, %q}, want {%d, %q}",
+			mapping.Code, mapping.Name, CKeyCodeMin, CKeyNameSpace)
+	}
+	if mapping.Action == nil {
+		t.Fatal("mapping.Action is nil")
+	}
+	if mapping.Action.Action != ActionPlay {
+		t.Errorf("mapping.Action.Action = %d, want %d", mapping.Action.Action, ActionPlay)
+	}
+	if !mapping.Action.FlagControl {
+		t.Error("mapping.Action.FlagControl = false, want true")
+	}
+}
+
+func TestComputerKeyMapBuilderToAction(t *testing.T) {
+	action := &ActionEvent{
+		Action:      ActionKeyDown,
+		FlagCKey:    true,
+		FlagKeyDown: true,
+		KeyCode:     CKeyCodeB,
+	}
+
+	builder := new(ComputerKeyMapBuilder)
+	builder.MapKeyCode(CKeyCodeA)
+	builder.ToAction(action)
+	keyMap := builder.Build()
+
+	mapping, err := keyMap.Find(&ComputerKeyMapping{FlagKeyDown: true, Code: CKeyCodeA})
+	if err != nil {
+		t.Fatalf("Find() error = %v", err)
+	}
+	if mapping.Action != action {
+		t.Errorf("mapping.Action = %p, want %p", mapping.Action, action)
+	}
+}
+
+func TestComputerKeyMapBuilderToActionInfersDirection(t *testing.T) {
+	action := &ActionEvent{Action: ActionKeyUp, FlagCKey: true, KeyCode: CKeyCodeB}
+
+	builder := new(ComputerKeyMapBuilder)
+	builder.MapKeyCode(CKeyCodeA)
+	builder.ToAction(action)
+	keyMap := builder.Build()
+
+	mapping, err := keyMap.Find(&ComputerKeyMapping{FlagKeyUp: true, Code: CKeyCodeA})
+	if err != nil {
+		t.Fatalf("Find() error = %v", err)
+	}
+	if mapping.Action != action {
+		t.Errorf("mapping.Action = %p, want %p", mapping.Action, action)
+	}
+}
+
+func TestComputerKeyMapBuilderEmpty(t *testing.T) {
+	var nilBuilder *ComputerKeyMapBuilder
+	if keyMap := nilBuilder.Build(); keyMap == nil {
+		t.Fatal("nil builder Build() = nil")
+	}
+	if got := nilBuilder.MapKeyName(CKeyNameA); got != nil {
+		t.Errorf("nil MapKeyName() = %p, want nil", got)
+	}
+	if got := nilBuilder.MapKeyCode(CKeyCodeA); got != nil {
+		t.Errorf("nil MapKeyCode() = %p, want nil", got)
+	}
+	nilBuilder.ToNote(60)
+	nilBuilder.ToControl(ActionPlay)
+	nilBuilder.ToAction(&ActionEvent{Action: ActionPlay})
+
+	keyMap := new(ComputerKeyMapBuilder).Build()
+	if _, err := keyMap.Find(&ComputerKeyMapping{Code: CKeyCodeA}); err == nil {
+		t.Fatal("empty builder produced a mapping")
+	}
+}

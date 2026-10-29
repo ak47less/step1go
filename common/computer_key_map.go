@@ -63,42 +63,111 @@ func (inst *ComputerKeyMap) Find(want *ComputerKeyMapping) (have *ComputerKeyMap
 ////////////////////////////////////////////////////////////////////////////////
 
 type ComputerKeyMapBuilder struct {
+	items []*ComputerKeyMapping
+
+	code ComputerKeyCode
+	name ComputerKeyName
 }
 
 func (inst *ComputerKeyMapBuilder) Build() *ComputerKeyMap {
-
-	// todo
-
+	result := new(ComputerKeyMap)
+	if inst == nil {
+		return result
+	}
+	for _, item := range inst.items {
+		result.Add(item)
+	}
+	return result
 }
 
 func (inst *ComputerKeyMapBuilder) MapKeyName(name ComputerKeyName) *ComputerKeyMapBuilder {
-
-	// todo
-
+	if inst == nil {
+		return nil
+	}
+	inst.name = name
+	inst.code = CKeyCodeMin
+	return inst
 }
 
 func (inst *ComputerKeyMapBuilder) MapKeyCode(code ComputerKeyCode) *ComputerKeyMapBuilder {
-
-	// todo
-
+	if inst == nil {
+		return nil
+	}
+	inst.code = code
+	if code > CKeyCodeMin && code < CKeyCodeMax {
+		inst.name = code.Name()
+	} else {
+		inst.name = ""
+	}
+	return inst
 }
 
 func (inst *ComputerKeyMapBuilder) ToNote(note MidiNoteNumber) {
+	if inst == nil || !inst.hasKey() {
+		return
+	}
 
-	// todo
-
+	const velocity MidiNoteVelocity = 127
+	inst.items = append(inst.items,
+		inst.newMapping(false, true, &ActionEvent{
+			Action:       ActionNoteOn,
+			FlagNote:     true,
+			FlagNoteOn:   true,
+			NoteNumber:   note,
+			NoteVelocity: velocity,
+		}),
+		inst.newMapping(true, false, &ActionEvent{
+			Action:       ActionNoteOff,
+			FlagNote:     true,
+			FlagNoteOff:  true,
+			NoteNumber:   note,
+			NoteVelocity: velocity,
+		}),
+	)
 }
 
 func (inst *ComputerKeyMapBuilder) ToControl(action Action) {
-
-	// todo
-
+	if inst == nil || !inst.hasKey() {
+		return
+	}
+	inst.items = append(inst.items, inst.newMapping(false, true, &ActionEvent{
+		Action:      action,
+		FlagControl: true,
+	}))
 }
 
 func (inst *ComputerKeyMapBuilder) ToAction(action *ActionEvent) {
+	if inst == nil || action == nil || !inst.hasKey() {
+		return
+	}
 
-	// todo
+	up := action.FlagKeyUp
+	down := action.FlagKeyDown
+	if !up && !down {
+		up = action.Action == ActionKeyUp
+		down = !up
+	}
+	inst.items = append(inst.items, inst.newMapping(up, down, action))
+}
 
+func (inst *ComputerKeyMapBuilder) hasKey() bool {
+	if inst == nil {
+		return false
+	}
+	if inst.name != "" {
+		return true
+	}
+	return inst.code > CKeyCodeMin && inst.code < CKeyCodeMax
+}
+
+func (inst *ComputerKeyMapBuilder) newMapping(up, down bool, action *ActionEvent) *ComputerKeyMapping {
+	return &ComputerKeyMapping{
+		FlagKeyUp:   up,
+		FlagKeyDown: down,
+		Code:        inst.code,
+		Name:        inst.name,
+		Action:      action,
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
