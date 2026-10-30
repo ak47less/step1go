@@ -47,8 +47,10 @@ func (inst *Boot) Run(cfg *Configuration) error {
 
 func (inst *Boot) loadDefaultConfig(cfg *Configuration) {
 
+	pf := new(SimpleProfile)
+
 	cfg.Driver = NewMockDriver()
-	cfg.BPM = 99
+	cfg.Profile = pf.Init()
 	cfg.SampleRate = 44100
 
 }

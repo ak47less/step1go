@@ -14,9 +14,10 @@ type Timeline struct {
 
 	Length Seconds
 
-	BPM BPM
+	// BPM BPM
+	// Tempo Tempo
 
-	Tempo Tempo
+	Profile MusicProfile
 
 	Loop bool
 }
@@ -27,20 +28,17 @@ func (inst *Timeline) Init() *Timeline {
 		inst = new(Timeline)
 	}
 
-	up := inst.Tempo.Upper
-	lo := inst.Tempo.Lower
+	if inst.Profile == nil {
 
-	if up == 0 && lo == 0 && inst.Parent == nil {
+		profile := (new(SimpleProfile)).Init()
 
-		inst.BPM = 100
 		inst.Label = "default"
-		inst.Length = 100
+		inst.Length = 999
 		inst.Loop = false
 		inst.Offset = 0
 		inst.Parent = nil
 
-		inst.Tempo.Upper = 4
-		inst.Tempo.Lower = 4
+		inst.Profile = profile
 	}
 
 	return inst
@@ -66,8 +64,6 @@ func (inst *Timeline) Equals(other *Timeline) bool {
 	if inst.Label != other.Label ||
 		inst.Offset != other.Offset ||
 		inst.Length != other.Length ||
-		inst.BPM != other.BPM ||
-		inst.Tempo != other.Tempo ||
 		inst.Loop != other.Loop {
 		return false
 	}

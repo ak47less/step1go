@@ -186,7 +186,9 @@ func (inst *innerSequencerUpdater) innerDoComputeSpeed(sc *SequencerContext) err
 
 	ec := sc.EngineContext
 	tl := ec.WorkTileline
-	bpm := tl.BPM
+	profile := tl.Profile
+
+	bpm := profile.GetSpeed()
 	step_p_beat := sc.StepsPerBeat
 
 	if bpm < minBpm {

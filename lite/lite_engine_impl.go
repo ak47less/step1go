@@ -34,6 +34,12 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	seqfactory := new(innerSequencerFactory)
 	insfactory := cfg.InstrumentFactory
 	ih := new(DefaultInstrumentHolder)
+	profile := cfg.Profile
+
+	if profile == nil {
+		profile = (new(SimpleProfile)).Init()
+		cfg.Profile = profile
+	}
 
 	if insfactory == nil {
 		return nil, fmt.Errorf("config.InstrumentFactory is nil")
@@ -45,10 +51,10 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	trans.tc = tc
 
 	tl0.Label = "root"
-	tl0.BPM = cfg.BPM
+	tl0.Profile = profile
 
 	tl1.Label = "work"
-	tl1.BPM = cfg.BPM
+	tl1.Profile = profile
 	tl1.Parent = tl0
 
 	pt0.At = tl0

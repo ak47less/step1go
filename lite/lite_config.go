@@ -13,8 +13,7 @@ type Configuration struct {
 
 	SampleRate int
 
-	BPM   BPM
-	Tempo Tempo
+	Profile MusicProfile
 
 	CountBankMax  uint
 	CountStepMax  uint
@@ -30,9 +29,8 @@ func DefaultConfig() *Configuration {
 
 	cfg.Driver = driver
 	cfg.SampleRate = 44100
-	cfg.BPM = 100
-	cfg.Tempo.Upper = 4
-	cfg.Tempo.Lower = 4
+
+	cfg.Profile = (new(SimpleProfile)).Init()
 
 	cfg.CountBankMax = 16
 	cfg.CountStepMax = 32
