@@ -2,23 +2,25 @@ package lite
 
 import "testing"
 
+func newTimingTestProfile(speed BPM, tempo Tempo) *SimpleProfile {
+	return (&SimpleProfile{}).Init().SetSpeed(speed).SetTempo(tempo)
+}
+
 func TestTimelineEquals(t *testing.T) {
 	newTimeline := func() *Timeline {
 		return &Timeline{
 			Parent: &Timeline{
-				Label:  "root",
-				Offset: 1,
-				Length: 120,
-				BPM:    120,
-				Tempo:  Tempo{Upper: 4, Lower: 4},
-				Loop:   true,
+				Label:   "root",
+				Offset:  1,
+				Length:  120,
+				Profile: newTimingTestProfile(120, NewTempo(4, 4)),
+				Loop:    true,
 			},
-			Label:  "timeline",
-			Offset: 2,
-			Length: 60,
-			BPM:    90,
-			Tempo:  Tempo{Upper: 3, Lower: 4},
-			Loop:   false,
+			Label:   "timeline",
+			Offset:  2,
+			Length:  60,
+			Profile: newTimingTestProfile(90, NewTempo(3, 4)),
+			Loop:    false,
 		}
 	}
 
@@ -49,16 +51,6 @@ func TestTimelineEquals(t *testing.T) {
 		{
 			name:   "different length",
 			mutate: func(timeline *Timeline) { timeline.Length = 90 },
-			want:   false,
-		},
-		{
-			name:   "different bpm",
-			mutate: func(timeline *Timeline) { timeline.BPM = 100 },
-			want:   false,
-		},
-		{
-			name:   "different tempo",
-			mutate: func(timeline *Timeline) { timeline.Tempo = Tempo{Upper: 6, Lower: 8} },
 			want:   false,
 		},
 		{
@@ -142,9 +134,9 @@ func TestTimelineSame(t *testing.T) {
 }
 
 func TestTimelineHasSameRoot(t *testing.T) {
-	root := &Timeline{Label: "root", BPM: 120}
-	equivalentRoot := &Timeline{Label: "root", BPM: 120}
-	differentRoot := &Timeline{Label: "root", BPM: 90}
+	root := &Timeline{Label: "root", Profile: newTimingTestProfile(120, NewTempo(4, 4))}
+	equivalentRoot := &Timeline{Label: "root", Profile: newTimingTestProfile(120, NewTempo(4, 4))}
+	differentRoot := &Timeline{Label: "root", Profile: newTimingTestProfile(90, NewTempo(3, 4))}
 
 	a := &Timeline{Parent: root, Label: "a"}
 	b := &Timeline{Parent: root, Label: "b"}
