@@ -45,8 +45,8 @@ type Frequency float32
 
 // 节拍
 type Tempo struct {
-	Upper uint `json:"upper"`
-	Lower uint `json:"lower"`
+	Upper uint8 `json:"upper"`
+	Lower uint8 `json:"lower"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -740,6 +740,7 @@ func chordIntervals(mode ChordMode) []int {
 ////////////////////////////////////////////////////////////////////////////////
 // Scale : 调式
 
+// 表示调式
 type ScaleMode string
 
 const (
@@ -921,6 +922,31 @@ func buildIntervalPattern(intervals []int) string {
 
 // MIDI 按键编码, 例如:(value=69,A4,440Hz), (value=60,C4(middle_C),261.6Hz)
 type NotePitch = PitchNumber
+
+////////////////////////////////////////////////////////////////////////////////
+
+type SpeedGetter interface {
+	GetSpeed() BPM
+}
+
+type ScaleGetter interface {
+	GetScale() ScaleMode
+}
+
+type TempoGetter interface {
+	GetTempo() Tempo
+}
+
+type ToneGetter interface {
+	GetTone() ToneName
+}
+
+type MusicProfile interface {
+	SpeedGetter
+	ScaleGetter
+	TempoGetter
+	ToneGetter
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // EOF
