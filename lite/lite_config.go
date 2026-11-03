@@ -49,6 +49,11 @@ type MonitorConfig struct {
 	Scheme string
 	Host   string
 	Port   int
+
+	FlagLogSTC       bool
+	FlagLogSeq       bool
+	FlagLogTransport bool
+	FlagLogEngine    bool
 }
 
 func (inst *MonitorConfig) Prepare() *MonitorConfig {

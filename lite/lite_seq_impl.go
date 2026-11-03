@@ -1,13 +1,13 @@
 package lite
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ak47less/step1go/common"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
+// innerSequencer
 
 type innerSequencer struct {
 	context *SequencerContext
@@ -34,13 +34,14 @@ func (inst *innerSequencer) GetTracks() []*Track {
 }
 
 // OnClock implements [Sequencer].
-func (inst *innerSequencer) OnClock(cc *ClockContext) error {
+func (inst *innerSequencer) OnStep(stc *StepTickContext) error {
 
-	idx := cc.CurrentStepIndex
-	cnt := cc.CurrentStepCount
+	current := &stc.Current
+	loc := current.Index
+	idx := current.Location
 
 	logger := common.Log()
-	logger.Info("innerSequencer.OnClock( count=%d, index=%d )", cnt, idx)
+	logger.Trace("innerSequencer.OnClock( count=%d, index=%d )", loc, idx)
 
 	return nil
 }
@@ -56,96 +57,6 @@ func (inst *innerSequencer) Update(ctx *SequencerContext) error {
 }
 
 func (inst *innerSequencer) _impl() Sequencer {
-	return inst
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-type innerSequencerTrigger struct {
-	context *SequencerContext
-	// seq     Sequencer
-}
-
-// OnClock implements [ClockListener].
-func (inst *innerSequencerTrigger) OnClock(ce *ClockEvent) error {
-
-	var results []error
-	cc := new(ClockContext)
-	tp := ce.Time
-	ctx := inst.context
-
-	bank := inst.innerGetCurrentBank()
-	if bank == nil {
-		return fmt.Errorf("innerSequencerTrigger: current bank is nil")
-	}
-	bank_body := bank.Body
-
-	stepCount1 := ctx.TotalSteps
-	stepCount2 := inst.innerComputeStepCount(tp)
-	allSteps := bank_body.Steps.Items()
-
-	defer func() {
-		ctx.TotalSteps = stepCount2
-	}()
-
-	for count := stepCount1; count < stepCount2; count++ {
-
-		step := inst.innerGetStep(count, allSteps)
-
-		if step == nil {
-			continue
-		}
-
-		cc.CurrentStepIndex = step.Head.Index
-		cc.CurrentStepHead = step.Head
-		cc.CurrentStepBody = step.Body
-
-		err := inst.innerOnStep(cc)
-		if err != nil {
-			results = append(results, err)
-		}
-	}
-
-	if results == nil {
-		return nil
-	}
-	return errors.Join(results...)
-}
-
-func (inst *innerSequencerTrigger) innerGetCurrentBank() *Bank {
-	ctx := inst.context
-	return ctx.CurrentBank
-}
-
-func (inst *innerSequencerTrigger) innerGetStep(count StepCount, all []*Step) *Step {
-	size := len(all)
-	total := int(count)
-	if size < 1 {
-		return nil
-	}
-	idx := (total % size)
-	return all[idx]
-}
-
-func (inst *innerSequencerTrigger) innerComputeStepCount(tp *RelativePosition) StepCount {
-
-	const min = 0.001
-	pos := tp.Position
-	sps := inst.context.SecondsPerStep
-
-	if sps < min {
-		return 0
-	}
-
-	count := (pos / sps)
-	return StepCount(count)
-}
-
-func (inst *innerSequencerTrigger) innerOnStep(cc *ClockContext) error {
-	return inst.context.Sequencer.OnClock(cc)
-}
-
-func (inst *innerSequencerTrigger) _impl() ClockListener {
 	return inst
 }
 
@@ -223,7 +134,7 @@ func (inst *innerSequencerUpdater) innerDoLoadCurrentBank(sc *SequencerContext) 
 	}
 
 	// body
-	err := inst.innerPrepareBank(sc, bank)
+	err := inst.innerPrepareBank(bank)
 	if err != nil {
 		return err
 	}
@@ -233,44 +144,35 @@ func (inst *innerSequencerUpdater) innerDoLoadCurrentBank(sc *SequencerContext) 
 	return nil
 }
 
-// func (inst *innerSequencerUpdater) innerPrepareCell(sc *SequencerContext, cell *Cell) error {}
-// func (inst *innerSequencerUpdater) innerPrepareStep(sc *SequencerContext, step *Step) error {}
+func (inst *innerSequencerUpdater) innerPrepareBank(bank *Bank) error {
 
-func (inst *innerSequencerUpdater) innerPrepareBank(sc *SequencerContext, bank *Bank) error {
-
-	if sc == nil {
-		return fmt.Errorf("innerSequencerUpdater: SequencerContext is nil")
-	}
 	if bank == nil {
 		return fmt.Errorf("innerSequencerUpdater: bank is nil")
 	}
-
-	bankbody := bank.Body
-	if bankbody == nil {
-		bankbody = new(BankBody)
-		bankbody.Head = bank.Head
-		bank.Body = bankbody
+	sc := bank.Context
+	if sc == nil {
+		return fmt.Errorf("innerSequencerUpdater: SequencerContext is nil")
 	}
 
-	var iBank BankIndex = bank.Head.Index
+	var iBank BankIndex = bank.Index
 	var iStep StepIndex = 0
 	var iTrack TrackIndex = 0
 
 	stepIdxLimit := StepIndex(sc.Steps.GetSize())
 	trackIdxLimit := TrackIndex(sc.Tracks.GetSize())
-	cell := new(Cell)
-	cellman := &bankbody.CellManager
+	want := new(Cell)
+	cellman := bank.CellManager
 	const autoMake = true
 
 	for iTrack = 0; iTrack < trackIdxLimit; iTrack++ {
 
 		for iStep = 0; iStep < stepIdxLimit; iStep++ {
 
-			cell.BankIndex = iBank
-			cell.StepIndex = iStep
-			cell.TrackIndex = iTrack
+			want.BankIndex = iBank
+			want.StepIndex = iStep
+			want.TrackIndex = iTrack
 
-			have, err := cellman.OpenCell(cell, autoMake)
+			have, err := cellman.OpenCell(want, autoMake)
 			if err != nil {
 				return err
 			}
@@ -295,6 +197,7 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	seq := new(innerSequencer)
 	cfg := ec.Configuration
 	trigger := new(innerSequencerTrigger)
+	cellman := new(CellManager)
 
 	seq.context = sc
 	trigger.context = sc
@@ -309,6 +212,7 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	sc.EngineContext = ec
 	sc.Updating = true
 	sc.StepsPerBeat = 2
+	sc.CellManager = cellman
 
 	return sc.Sequencer, nil
 }

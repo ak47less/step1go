@@ -5,6 +5,21 @@ import "time"
 ////////////////////////////////////////////////////////////////////////////////
 // Timeline
 
+type TimelineType int
+
+const (
+	TimelineTypeMin TimelineType = iota
+
+	TimelineTypeRoot
+	TimelineTypeWork
+	TimelineTypeClip
+
+	TimelineTypeMax
+)
+
+////////////////////////////////////////////////////////////////////////////////
+// Timeline
+
 type Timeline struct {
 	Parent *Timeline
 
@@ -14,8 +29,7 @@ type Timeline struct {
 
 	Length Seconds
 
-	// BPM BPM
-	// Tempo Tempo
+	Type TimelineType
 
 	Profile MusicProfile
 
@@ -42,6 +56,13 @@ func (inst *Timeline) Init() *Timeline {
 	}
 
 	return inst
+}
+
+func (inst *Timeline) IsTypeOf(t TimelineType) bool {
+	if inst == nil {
+		return false
+	}
+	return (inst.Type == t)
 }
 
 func (inst *Timeline) HasSameRoot(other *Timeline) bool {
@@ -150,6 +171,14 @@ func (inst *RelativePosition) Absolute() AbsolutePosition {
 	off := at.GetTotalOffset()
 	rel := inst.Position
 	return AbsolutePosition(off + rel) // = abs
+}
+
+func (inst *RelativePosition) Clone() *RelativePosition {
+	dst := new(RelativePosition)
+	if inst != nil {
+		*dst = *inst
+	}
+	return dst
 }
 
 ////////////////////////////////////////////////////////////////////////////////

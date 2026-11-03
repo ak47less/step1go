@@ -68,6 +68,7 @@ func (inst *Monitor) ontimer(tm *Timer) error {
 	tasklist = append(tasklist, inst.innerLogTransportState)
 	tasklist = append(tasklist, inst.innerLogPosition)
 	tasklist = append(tasklist, inst.innerLogKeyInput)
+	tasklist = append(tasklist, inst.innerLogSTC)
 
 	for _, task := range tasklist {
 		err := task(mo)
@@ -106,6 +107,27 @@ func (inst *Monitor) innerLogTransportState(mo *monitoring) error {
 
 	logger.Info("transport.[state playing:%v recording:%v paused:%v]", pl, re, pa)
 
+	return nil
+}
+
+func (inst *Monitor) innerLogSTC(mo *monitoring) error {
+
+	logger := mo.logger
+	sc := mo.context.SequencerContext
+	stc := sc.STC
+	txt := ""
+
+	if stc != nil {
+		current := stc.Current
+		pos := current.Position.Position
+		loc := current.Location
+		idx := current.Index
+		txt = fmt.Sprintf("[STC(StepTickContext) location:%d index:%d pos:%f ]", loc, idx, pos)
+	} else {
+		txt = "STC is nil"
+	}
+
+	logger.Info(txt)
 	return nil
 }
 

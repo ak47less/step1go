@@ -43,26 +43,26 @@ type ComplexCell struct {
 }
 
 /************************/
-/* SimpleCellCache      */
+/* CellCache      */
 /************************/
 
-type SimpleCellCache struct {
+type CellCache struct {
 	list []*SimpleCell
 }
 
-func (inst *SimpleCellCache) sort() {
+func (inst *CellCache) sort() {
 
 }
 
 /************************/
-/* SimpleCellManager    */
+/* CellManager    */
 /************************/
 
-type SimpleCellManager struct {
+type CellManager struct {
 	table map[string]*SimpleCell
 }
 
-func (inst *SimpleCellManager) OpenCell(want *Cell, autoMake bool) (*SimpleCell, error) {
+func (inst *CellManager) OpenCell(want *Cell, autoMake bool) (*SimpleCell, error) {
 
 	key := inst.innerGetKeyForCell(want)
 	tab := inst.innerGetTable()
@@ -85,14 +85,14 @@ func (inst *SimpleCellManager) OpenCell(want *Cell, autoMake bool) (*SimpleCell,
 	return have, nil
 }
 
-func (inst *SimpleCellManager) innerGetKeyForCell(want *Cell) string {
+func (inst *CellManager) innerGetKeyForCell(want *Cell) string {
 	if want == nil {
 		return ""
 	}
 	return fmt.Sprintf("b%d_s%d_t%d", want.BankIndex, want.StepIndex, want.TrackIndex)
 }
 
-func (inst *SimpleCellManager) innerGetTable() map[string]*SimpleCell {
+func (inst *CellManager) innerGetTable() map[string]*SimpleCell {
 	t := inst.table
 	if t == nil {
 		t = make(map[string]*SimpleCell)
@@ -104,38 +104,25 @@ func (inst *SimpleCellManager) innerGetTable() map[string]*SimpleCell {
 ////////////////////////////////////////////////////////////////////////////////
 // step
 
+// 物理下标
 type StepIndex uint
 
-type StepCount uint
+// 逻辑下标
+type StepLocation uint
 
 /**********************/
 /* Step (position)    */
 /**********************/
 
 type StepPosition struct {
+
+	// Position Seconds
+	// At       *Timeline
+
+	RelativePosition
+
 	Index    StepIndex
-	Count    StepCount
-	Position Seconds
-	AtLine   *Timeline
-}
-
-/**********************/
-/* Step (head)        */
-/**********************/
-
-type StepHead struct {
-	Index  StepIndex
-	Weight byte
-}
-
-/**********************/
-/* Step (body)        */
-/**********************/
-
-type StepBody struct {
-	Head *StepHead
-
-	Cells SimpleCellCache
+	Location StepLocation
 }
 
 /**********************/
@@ -143,8 +130,17 @@ type StepBody struct {
 /**********************/
 
 type Step struct {
-	Head *StepHead
-	Body *StepBody
+
+	// Head
+
+	Index  StepIndex
+	Weight byte
+
+	// Body
+
+	Context *SequencerContext
+
+	Cells CellCache
 }
 
 /**********************/
@@ -198,6 +194,11 @@ func (inst *StepList) Init(size uint) {
 }
 
 func (inst *StepList) Items() []*Step {
+
+	if inst == nil {
+		return nil
+	}
+
 	all := inst.list
 	want := int(inst.size)
 	have := len(all)
@@ -215,12 +216,9 @@ func (inst *StepList) updateList() {
 	for ; have < want; have++ {
 
 		item := new(Step)
-		head := new(StepHead)
 
-		item.Head = head
-
-		head.Index = StepIndex(have)
-		head.Weight = 60
+		item.Index = StepIndex(have)
+		item.Weight = 60
 
 		inst.list = append(inst.list, item)
 	}
@@ -234,27 +232,22 @@ type TrackIndex int
 
 type TrackName string
 
-type TrackHead struct {
-	Index TrackIndex
+type Track struct {
 
-	Name TrackName
+	// Head
 
-	Label string
-
-	Instrument Instrument
-}
-
-type TrackBody struct {
-	Head *TrackHead
-
+	Index  TrackIndex
+	Name   TrackName
+	Label  string
 	Weight byte
 
-	Cells SimpleCellCache
-}
+	// Body
 
-type Track struct {
-	Head *TrackHead
-	Body *TrackBody
+	Context *SequencerContext
+
+	Instrument Instrument
+
+	Cells CellCache
 }
 
 /**********************/
@@ -325,14 +318,11 @@ func (inst *TrackList) updateList() {
 	for ; have < want; have++ {
 
 		item := new(Track)
-		head := new(TrackHead)
 		nstr := strconv.Itoa(have)
 
-		item.Head = head
-
-		head.Index = TrackIndex(have)
-		head.Name = TrackName("track" + nstr)
-		head.Label = "Track-" + nstr
+		item.Index = TrackIndex(have)
+		item.Name = TrackName("track" + nstr)
+		item.Label = "Track-" + nstr
 
 		inst.list = append(inst.list, item)
 	}
@@ -347,23 +337,21 @@ type BankIndex uint
 type BankName string
 
 // 存储区
-type BankHead struct {
+type Bank struct {
+
+	// head
+
 	Index BankIndex
 	Name  BankName
 	Label string
-}
 
-type BankBody struct {
-	Head *BankHead
+	// body
 
-	Steps StepList
+	Context *SequencerContext
 
-	CellManager SimpleCellManager
-}
-
-type Bank struct {
-	Head *BankHead
-	Body *BankBody
+	CellManager *CellManager
+	Steps       *StepList
+	Tracks      *TrackList
 }
 
 /**********************/
@@ -434,14 +422,11 @@ func (inst *BankList) updateList() {
 	for ; have < want; have++ {
 
 		item := new(Bank)
-		head := new(BankHead)
 		nstr := strconv.Itoa(have)
 
-		item.Head = head
-
-		head.Index = BankIndex(have)
-		head.Name = BankName("bank" + nstr)
-		head.Label = "Bank-" + nstr
+		item.Index = BankIndex(have)
+		item.Name = BankName("bank" + nstr)
+		item.Label = "Bank-" + nstr
 
 		inst.list = append(inst.list, item)
 	}
@@ -456,7 +441,7 @@ type SequencerPart interface {
 }
 
 type Sequencer interface {
-	ClockHandler
+	StepTickHandler
 
 	SequencerPart
 
@@ -481,19 +466,56 @@ type SequencerContext struct {
 	CurrentBank      *Bank
 	CurrentBankIndex BankIndex
 
-	Banks BankList
+	// sets
 
-	Tracks TrackList
-
-	Steps StepList
+	CellManager *CellManager
+	Banks       BankList
+	Tracks      TrackList
+	Steps       StepList
 
 	SecondsPerStep Seconds // 每一步的时长, 由 bpm 和 tempo 计算所得
 	SecondsPerBeat Seconds // 每一拍的时长, 由 bpm 和 tempo 计算所得
 	StepsPerBeat   uint8   // 每一拍包含的步数
 
-	TotalSteps StepCount //  总步数@work.timeline
+	STC *StepTickContext
 
 	Updating bool // 1 表示有内容需要更新
+}
+
+func (inst *SequencerContext) NewBank(index BankIndex) *Bank {
+
+	list_s := &inst.Steps
+	list_t := &inst.Tracks
+
+	b := &Bank{
+		Index:       index,
+		Context:     inst,
+		CellManager: inst.CellManager,
+		Tracks:      list_t,
+		Steps:       list_s,
+	}
+
+	return b
+}
+
+func (inst *SequencerContext) NewStep(index StepIndex) *Step {
+
+	s := &Step{
+		Index:   index,
+		Context: inst,
+	}
+
+	return s
+}
+
+func (inst *SequencerContext) NewTrack(index TrackIndex) *Track {
+
+	t := &Track{
+		Index:   index,
+		Context: inst,
+	}
+
+	return t
 }
 
 ////////////////////////////////////////////////////////////////////////////////

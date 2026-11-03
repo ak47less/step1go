@@ -196,7 +196,7 @@ type innerTransport struct {
 func (inst *innerTransport) Pause() error {
 	tc := inst.tc
 	tc.paused = true
-	return nil
+	return inst.innerUpdateTransportContext(tc)
 }
 
 // Paused implements [Transport].
@@ -207,9 +207,14 @@ func (inst *innerTransport) Paused() bool {
 
 // Play implements [Transport].
 func (inst *innerTransport) Play() error {
+
 	tc := inst.tc
+	current := inst.ctx.CurrentAtWork.Clone()
+
 	tc.playing = true
-	return nil
+	tc.rebaseToNewPosition = current
+
+	return inst.innerUpdateTransportContext(tc)
 }
 
 // Playing implements [Transport].
@@ -220,10 +225,12 @@ func (inst *innerTransport) Playing() bool {
 
 // Record implements [Transport].
 func (inst *innerTransport) Record() error {
+
 	tc := inst.tc
 	tc.recording = true
 	tc.playing = true
-	return nil
+
+	return inst.innerUpdateTransportContext(tc)
 }
 
 // Recording implements [Transport].
@@ -234,17 +241,33 @@ func (inst *innerTransport) Recording() bool {
 
 // Resume implements [Transport].
 func (inst *innerTransport) Resume() error {
+
 	tc := inst.tc
+	current := inst.ctx.CurrentAtWork.Clone()
+
 	tc.paused = false
-	return nil
+	tc.rebaseToNewPosition = current
+
+	return inst.innerUpdateTransportContext(tc)
 }
 
 // Stop implements [Transport].
 func (inst *innerTransport) Stop() error {
+
 	tc := inst.tc
 	tc.recording = false
 	tc.playing = false
 	tc.paused = false
+
+	return inst.innerUpdateTransportContext(tc)
+}
+
+func (inst *innerTransport) innerUpdateTransportContext(tc *TransportContext) error {
+	if tc != nil {
+		play := tc.playing
+		pause := tc.paused
+		tc.running = (!pause) && play
+	}
 	return nil
 }
 
@@ -261,6 +284,46 @@ func (inst *innerTransport) innerCheckUpdate() error {
 	return nil
 }
 
+// 重新确定基准位置
+func (inst *innerTransport) innerRebaseCurrentPos(ctx *Context, to *RelativePosition) error {
+
+	pos := to.Position
+	line_wk := ctx.WorkTileline
+	current_pos_abs := ctx.CurrentAtRoot.Absolute()
+	current_pos_wk := ctx.CurrentAtWork
+
+	current_pos_wk.At = line_wk
+	current_pos_wk.Position = pos
+	line_wk.Offset = Seconds(current_pos_abs) - pos
+
+	return nil
+}
+
+func (inst *innerTransport) innerUpdateCurrentPos() error {
+
+	ctx := inst.ctx
+	ac := ctx.AudioContext
+	t0 := ac.GetCurrentTime()
+	tc := ctx.TransportContext
+	pos_at_root := ctx.CurrentAtRoot
+	pos_at_work := ctx.CurrentAtWork
+	rebase := tc.rebaseToNewPosition
+
+	pos_at_root.Position = t0
+
+	if tc.running {
+		off := pos_at_work.At.GetTotalOffset()
+		pos_at_work.Position = t0 - off
+	}
+
+	if rebase != nil {
+		tc.rebaseToNewPosition = nil
+		inst.innerRebaseCurrentPos(ctx, rebase)
+	}
+
+	return nil
+}
+
 func (inst *innerTransport) ontimer(t *Timer) error {
 
 	err := inst.innerCheckUpdate()
@@ -268,24 +331,17 @@ func (inst *innerTransport) ontimer(t *Timer) error {
 		return err
 	}
 
+	inst.innerUpdateCurrentPos()
+
 	ctx := inst.ctx
-	ac := ctx.AudioContext
-	t0 := ac.GetCurrentTime()
 	clock := ctx.Clock
 	evt := new(ClockEvent)
 
 	ctx.State.Started = true
 
-	tp0 := ctx.CurrentAtRoot
-	tp1 := ctx.CurrentAtWork
-	off := tp1.At.GetTotalOffset()
-
-	tp0.Position = t0
-	tp1.Position = t0 - off
-
 	evt.Clock = clock
 	evt.Context = ctx
-	evt.Time = tp1
+	evt.Time = ctx.CurrentAtWork
 
 	return clock.Dispatch(evt)
 }

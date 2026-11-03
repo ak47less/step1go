@@ -1,11 +1,8 @@
 package lite
 
 import (
-	"errors"
 	"fmt"
 	"log"
-	"reflect"
-	"sync"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -76,118 +73,10 @@ type TransportContext struct {
 	paused    bool
 	playing   bool
 	recording bool
-}
 
-////////////////////////////////////////////////////////////////////////////////
+	running bool // 综合各个状态, 确定是否正在走带
 
-type ClockEvent struct {
-	Clock   *Clock
-	Time    *RelativePosition
-	Context *Context
-}
-
-type ClockListener interface {
-	OnClock(ce *ClockEvent) error
-}
-
-/**************************/
-/*  class Clock           */
-/**************************/
-
-type Clock struct {
-	mu        sync.RWMutex
-	listeners []ClockListener
-}
-
-func (inst *Clock) AddListener(l ClockListener) {
-	if isNilClockListener(l) {
-		return
-	}
-
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-
-	for _, item := range inst.listeners {
-		if sameClockListener(item, l) {
-			return
-		}
-	}
-	inst.listeners = append(inst.listeners, l)
-}
-
-func (inst *Clock) RemoveListener(l ClockListener) {
-	if isNilClockListener(l) {
-		return
-	}
-
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-
-	listeners := inst.listeners[:0]
-	for _, item := range inst.listeners {
-		if !sameClockListener(item, l) {
-			listeners = append(listeners, item)
-		}
-	}
-	inst.listeners = listeners
-}
-
-func (inst *Clock) Dispatch(ce *ClockEvent) error {
-	if ce == nil {
-		return errors.New("lite: nil clock event")
-	}
-
-	inst.mu.RLock()
-	listeners := append([]ClockListener(nil), inst.listeners...)
-	inst.mu.RUnlock()
-
-	ce.Clock = inst
-
-	var firstErr error
-	var joinedErr error
-	for _, listener := range listeners {
-		err := listener.OnClock(ce)
-		if err == nil {
-			continue
-		}
-		if firstErr == nil {
-			firstErr = err
-		} else {
-			joinedErr = errors.Join(joinedErr, err)
-		}
-	}
-
-	if joinedErr != nil {
-		return errors.Join(firstErr, joinedErr)
-	}
-	return firstErr
-}
-
-func isNilClockListener(l ClockListener) bool {
-	if l == nil {
-		return true
-	}
-
-	value := reflect.ValueOf(l)
-	switch value.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return value.IsNil()
-	default:
-		return false
-	}
-}
-
-func sameClockListener(a ClockListener, b ClockListener) bool {
-	if isNilClockListener(a) || isNilClockListener(b) {
-		return false
-	}
-
-	ta := reflect.TypeOf(a)
-	tb := reflect.TypeOf(b)
-	if ta != tb || !ta.Comparable() {
-		return false
-	}
-	return a == b
+	rebaseToNewPosition *RelativePosition // 如果这个字段不为nil, 表示需要重定向到新的位置 @work.timeline
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,6 +117,32 @@ type Context struct {
 }
 
 type EngineContext = Context
+
+func (inst *Context) GetPosAtWork(src *RelativePosition) *RelativePosition {
+
+	if src == nil {
+		src = new(RelativePosition)
+	}
+
+	if inst == nil {
+		return src
+	}
+
+	line1 := src.At
+	line2 := inst.WorkTileline
+
+	if line1 == nil || line2 == nil {
+		return src
+	}
+
+	if line1.IsTypeOf(TimelineTypeWork) {
+		return src
+	}
+
+	abs := src.Absolute()
+	dst := new(RelativePosition)
+	return abs.Relative(line2, dst)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // EOF
