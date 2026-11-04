@@ -36,14 +36,20 @@ func (inst *innerSequencer) GetTracks() []*Track {
 // OnClock implements [Sequencer].
 func (inst *innerSequencer) OnStep(stc *StepTickContext) error {
 
-	current := &stc.Current
-	loc := current.Index
-	idx := current.Location
+	// logger := common.Log()
+	// logger.Trace("innerSequencer.OnClock( count=%d, index=%d )", loc, idx)
 
-	logger := common.Log()
-	logger.Trace("innerSequencer.OnClock( count=%d, index=%d )", loc, idx)
+	holder := inst.context.CurrentBankHolder
+	if holder == nil {
+		return fmt.Errorf("context.CurrentBankHolder is nil")
+	}
 
-	return nil
+	bank, err := holder.GetBank()
+	if err != nil {
+		return err
+	}
+
+	return bank.OnStep(stc)
 }
 
 // Update implements [Sequencer].
@@ -205,9 +211,9 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	ec.Clock.AddListener(trigger)
 
 	sc.Sequencer = seq
-	sc.Banks.Init(cfg.CountBankMax)
-	sc.Steps.Init(cfg.CountStepMax)
-	sc.Tracks.Init(cfg.CountTrackMax)
+	sc.Banks.Init(cfg.BankListSize, cfg.BankListCapacity)
+	sc.Steps.Init(cfg.StepListSize, cfg.StepListCapacity)
+	sc.Tracks.Init(cfg.TrackListSize, cfg.TrackListCapacity)
 	sc.Engine = ec.Engine
 	sc.EngineContext = ec
 	sc.Updating = true

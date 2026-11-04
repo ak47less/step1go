@@ -21,6 +21,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx := new(Context)
 	engine := new(innerEngine)
 	driver := cfg.Driver
+	lm := NewLifeManager()
 	acfactory := driver.GetAudioContextFactory()
 	ac := acfactory.NewAudioContext()
 	tc := new(TransportContext)
@@ -60,6 +61,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	pt0.At = tl0
 	pt1.At = tl1
 
+	ctx.LifeManager = lm
 	ctx.Configuration = cfg
 	ctx.Engine = engine
 	ctx.AudioContext = ac

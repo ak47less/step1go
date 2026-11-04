@@ -22,6 +22,12 @@ type Cell struct {
 	TrackIndex TrackIndex
 }
 
+//////////////////////////////////////////////////////////////
+
+/************************/
+/* SimpleCell           */
+/************************/
+
 type SimpleCell struct {
 	Cell
 
@@ -29,8 +35,88 @@ type SimpleCell struct {
 	BankRef  *Bank
 	TrackRef *Track
 
+	Enabled bool
+
+	Note *Note
+
 	Complex *ComplexCell
 }
+
+// OnStep implements [StepTickHandler].
+func (inst *SimpleCell) OnStep(stc *StepTickContext) error {
+
+	if inst == nil {
+		return fmt.Errorf("SimpleCell-instance is nil")
+	}
+
+	if !inst.Enabled {
+		return nil
+	}
+
+	var err error
+	complex := inst.Complex
+	note := inst.Note
+
+	if complex == nil {
+		// as a simple-cell
+		if note != nil {
+			err = inst.innerDoSimpleCellNote(stc, note)
+		}
+	} else {
+		// as a complex-cell
+		if complex.First == inst {
+			err = complex.OnStep(stc)
+		}
+	}
+
+	return err
+}
+
+func (inst *SimpleCell) innerDoSimpleCellNote(stc *StepTickContext, note *Note) error {
+
+	track := inst.TrackRef
+	if track == nil {
+		return fmt.Errorf("SimpleCell.track_ref is nil")
+	}
+	in := track.Instrument
+	if in == nil {
+		return fmt.Errorf("track.Instrument is nil")
+	}
+
+	msg := new(MidiMessage)
+	noteOn := new(MidiNote)
+	noteOff := new(MidiNote)
+	chl := track.Channel
+	time := stc.Current
+	steplen := stc.StepLength
+
+	noteOn.Channel = chl
+	noteOn.Key = note.Key
+	noteOn.Velocity = note.Velocity
+	noteOn.Position = time.Position.Position
+	noteOn.At = time.Position.At
+
+	noteOff.Channel = chl
+	noteOff.Key = note.Key
+	noteOff.Velocity = 0
+	noteOff.Position = time.Position.Position + steplen
+	noteOff.At = time.Position.At
+
+	msg.NoteOn = noteOn
+	msg.NoteOff = noteOff
+
+	return in.Dispatch(msg)
+}
+
+func (inst *SimpleCell) _impl() StepTickHandler {
+	return inst
+}
+
+//////////////////////////////////////////////////////////////
+
+/************************/
+/* ComplexCell          */
+/************************/
 
 // ComplexCell : 每个 ComplexCell 占用一个或多个 SimpleCell 的坑位
 type ComplexCell struct {
@@ -42,8 +128,19 @@ type ComplexCell struct {
 	Notes []*Note // 每个 ComplexCell 可以平均拆分成一个或多个 Note
 }
 
+// OnStep implements [StepTickHandler].
+func (inst *ComplexCell) OnStep(cc *StepTickContext) error {
+	panic("unimplemented")
+}
+
+func (inst *ComplexCell) _impl() StepTickHandler {
+	return inst
+}
+
+//////////////////////////////////////////////////////////////
+
 /************************/
-/* CellCache      */
+/* CellCache            */
 /************************/
 
 type CellCache struct {
@@ -102,7 +199,7 @@ func (inst *CellManager) innerGetTable() map[string]*SimpleCell {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// step
+// step (配件)
 
 // 物理下标
 type StepIndex uint
@@ -123,24 +220,6 @@ type StepPosition struct {
 
 	Index    StepIndex
 	Location StepLocation
-}
-
-/**********************/
-/* Step (item)        */
-/**********************/
-
-type Step struct {
-
-	// Head
-
-	Index  StepIndex
-	Weight byte
-
-	// Body
-
-	Context *SequencerContext
-
-	Cells CellCache
 }
 
 /**********************/
@@ -186,9 +265,9 @@ func (inst *StepList) SetSize(size uint) uint {
 	return size
 }
 
-func (inst *StepList) Init(size uint) {
+func (inst *StepList) Init(size, capacity uint) {
 	if inst.capacity == 0 {
-		inst.SetCapacity(size)
+		inst.SetCapacity(capacity)
 		inst.SetSize(size)
 	}
 }
@@ -226,6 +305,48 @@ func (inst *StepList) updateList() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// step  (主体结构)
+
+type Step struct {
+
+	// Head
+
+	Index StepIndex
+
+	Weight byte
+
+	// Body
+
+	Context *SequencerContext
+
+	Cells CellCache
+}
+
+// OnStep implements [StepTickHandler].
+func (inst *Step) OnStep(stc *StepTickContext) error {
+
+	if inst == nil {
+		return fmt.Errorf("Step-instance is nil")
+	}
+
+	var err error
+	clist := inst.Cells.list
+
+	for _, cell := range clist {
+		err = cell.OnStep(stc)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *Step) _impl() StepTickHandler {
+	return inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // track
 
 type TrackIndex int
@@ -236,10 +357,11 @@ type Track struct {
 
 	// Head
 
-	Index  TrackIndex
-	Name   TrackName
-	Label  string
-	Weight byte
+	Index   TrackIndex
+	Name    TrackName
+	Label   string
+	Weight  byte
+	Channel byte // midi-channel
 
 	// Body
 
@@ -293,9 +415,9 @@ func (inst *TrackList) GetTrack(index TrackIndex) *Track {
 	return nil
 }
 
-func (inst *TrackList) Init(size uint) {
+func (inst *TrackList) Init(size, capacity uint) {
 	if inst.capacity == 0 {
-		inst.SetCapacity(size)
+		inst.SetCapacity(capacity)
 		inst.SetSize(size)
 	}
 }
@@ -330,28 +452,18 @@ func (inst *TrackList) updateList() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// bank
+// bank (配件)
 
 type BankIndex uint
 
 type BankName string
 
-// 存储区
-type Bank struct {
+/**********************/
+/* BankHolder           */
+/**********************/
 
-	// head
-
-	Index BankIndex
-	Name  BankName
-	Label string
-
-	// body
-
-	Context *SequencerContext
-
-	CellManager *CellManager
-	Steps       *StepList
-	Tracks      *TrackList
+type BankHolder interface {
+	GetBank() (*Bank, error)
 }
 
 /**********************/
@@ -397,9 +509,9 @@ func (inst *BankList) GetBank(index BankIndex) *Bank {
 	return nil
 }
 
-func (inst *BankList) Init(size uint) {
+func (inst *BankList) Init(size, capacity uint) {
 	if inst.capacity == 0 {
-		inst.SetCapacity(size)
+		inst.SetCapacity(capacity)
 		inst.SetSize(size)
 	}
 }
@@ -434,6 +546,48 @@ func (inst *BankList) updateList() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// bank (存储区, 主体结构)
+
+type Bank struct {
+
+	// head
+
+	Index BankIndex
+	Name  BankName
+	Label string
+
+	// body
+
+	Context *SequencerContext
+
+	CellManager *CellManager
+	Steps       *StepList
+	Tracks      *TrackList
+}
+
+// OnStep implements [StepTickHandler].
+func (inst *Bank) OnStep(stc *StepTickContext) error {
+
+	if inst == nil {
+		return fmt.Errorf("bank-instance is nil")
+	}
+
+	if stc == nil {
+		return fmt.Errorf("param:STC(StepTickContext) is nil")
+	}
+
+	stp := &stc.Current
+	idx := stp.Index
+	step := inst.Steps.GetStep(idx)
+
+	return step.OnStep(stc)
+}
+
+func (inst *Bank) _impl() StepTickHandler {
+	return inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Sequencer
 
 type SequencerPart interface {
@@ -463,8 +617,9 @@ type SequencerContext struct {
 
 	Sequencer Sequencer
 
-	CurrentBank      *Bank
-	CurrentBankIndex BankIndex
+	CurrentBank       *Bank
+	CurrentBankIndex  BankIndex
+	CurrentBankHolder BankHolder
 
 	// sets
 

@@ -15,9 +15,13 @@ type Configuration struct {
 
 	Profile MusicProfile
 
-	CountBankMax  uint
-	CountStepMax  uint
-	CountTrackMax uint
+	BankListSize  uint // the list default size
+	StepListSize  uint // the list default size
+	TrackListSize uint // the list default size
+
+	BankListCapacity  uint // the list max size
+	StepListCapacity  uint // the list max size
+	TrackListCapacity uint // the list max size
 
 	Monitor *MonitorConfig // 如果这项配置为 nil, 表示不使用 Monitor
 }
@@ -32,9 +36,13 @@ func DefaultConfig() *Configuration {
 
 	cfg.Profile = (new(SimpleProfile)).Init()
 
-	cfg.CountBankMax = 16
-	cfg.CountStepMax = 32
-	cfg.CountTrackMax = 16
+	cfg.BankListCapacity = 8
+	cfg.StepListCapacity = 128
+	cfg.TrackListCapacity = 32
+
+	cfg.BankListSize = 4
+	cfg.StepListSize = 32
+	cfg.TrackListSize = 8
 
 	cfg.Monitor = nil
 
