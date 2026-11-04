@@ -44,6 +44,28 @@ type InstrumentFactoryRegistry struct {
 	mu             sync.RWMutex
 }
 
+// GetLifeCycle implements [Life].
+func (inst *InstrumentFactoryRegistry) GetLifeCycle() *LifeCycle {
+	lc := &LifeCycle{
+		OnInit:    inst.innerOnInit,
+		OnCreate:  inst.innerOnCreate,
+		OnDestroy: inst.innerOnDestroy,
+	}
+	return lc
+}
+
+// GetInfo implements [Part].
+func (inst *InstrumentFactoryRegistry) GetInfo() *PartInfo {
+
+	info := &PartInfo{}
+
+	info.Name = "InstrumentFactoryRegistry"
+	info.Classes = []PartClass{"InstrumentFactoryRegistry"}
+	info.Part = inst
+
+	return info
+}
+
 // CreateInstrument implements [InstrumentFactory].
 func (inst *InstrumentFactoryRegistry) CreateInstrument(
 	ctx *Context,
@@ -150,8 +172,23 @@ func (inst *InstrumentFactoryRegistry) initLocked() {
 	}
 }
 
-func (inst *InstrumentFactoryRegistry) _impl() InstrumentFactory {
-	return inst
+func (inst *InstrumentFactoryRegistry) innerOnInit(ec *Context) error {
+
+	return nil
+}
+
+func (inst *InstrumentFactoryRegistry) innerOnCreate() error {
+
+	return nil
+}
+
+func (inst *InstrumentFactoryRegistry) innerOnDestroy() error {
+
+	return nil
+}
+
+func (inst *InstrumentFactoryRegistry) _impl() (InstrumentFactory, Part, Life) {
+	return inst, inst, inst
 }
 
 ////////////////////////////////////////////////////////////////////////////////

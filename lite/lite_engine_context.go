@@ -14,7 +14,9 @@ type Context struct {
 
 	LifeManager LifeManager
 
-	// todo : comman comp-manager
+	PartManager PartManager
+
+	PartRegistry PartRegistry
 
 	Transport Transport
 

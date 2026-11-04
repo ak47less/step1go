@@ -17,32 +17,35 @@ func (inst *Boot) Run(cfg *Configuration) error {
 		return err
 	}
 
-	err = engine.Create()
-	if err != nil {
-		return err
-	}
+	// err = engine.Create()
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = engine.Start()
-	if err != nil {
-		return err
-	}
+	// err = engine.Start()
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = engine.Join()
-	if err != nil {
-		return err
-	}
+	// err = engine.Join()
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = engine.Stop()
-	if err != nil {
-		return err
-	}
+	// err = engine.Stop()
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = engine.Destroy()
-	if err != nil {
-		return err
-	}
+	// err = engine.Destroy()
+	// if err != nil {
+	// 	return err
+	// }
 
-	return nil
+	ec := engine.GetContext()
+	runner := new(LifeCycleRunner)
+
+	return runner.Init(ec).RunLM(ec.LifeManager)
 }
 
 func (inst *Boot) loadDefaultConfig(cfg *Configuration) {

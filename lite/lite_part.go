@@ -40,6 +40,10 @@ type PartManager interface {
 type PartRegistry interface {
 	Register(pr *PartRegistration) error
 
+	RegisterFactory(factory PartFactory) error
+
+	RegisterPart(part Part) error
+
 	ListNames() []PartName
 
 	FindByID(id PartID) (*PartRegistration, error)

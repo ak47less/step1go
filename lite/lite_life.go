@@ -414,4 +414,114 @@ func (inst *innerLifeManager) _impl() LifeManager {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+type LifeCycleRunner struct {
+	ec *EngineContext
+}
+
+func (inst *LifeCycleRunner) Init(ec *EngineContext) *LifeCycleRunner {
+	inst.ec = ec
+	return inst
+}
+
+func (inst *LifeCycleRunner) innerRunLC(lc *LifeCycle) error {
+
+	var err error
+	stagelist := make([]func() error, 0)
+
+	err = lc.OnInit(inst.ec)
+	if err != nil {
+		return err
+	}
+
+	stagelist = append(stagelist, lc.OnCreate)
+	stagelist = append(stagelist, lc.OnStart)
+	stagelist = append(stagelist, lc.OnResume)
+	stagelist = append(stagelist, lc.OnRun)
+	stagelist = append(stagelist, lc.OnPause)
+	stagelist = append(stagelist, lc.OnStop)
+	stagelist = append(stagelist, lc.OnDestroy)
+
+	for _, stage := range stagelist {
+		if stage == nil {
+			continue
+		}
+		err = stage()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *LifeCycleRunner) RunLC(lc *LifeCycle) error {
+	return inst.innerRunLC(lc)
+}
+
+func (inst *LifeCycleRunner) RunL(l Life) error {
+	lc := l.GetLifeCycle()
+	return inst.innerRunLC(lc)
+}
+
+func (inst *LifeCycleRunner) RunLM(lm LifeManager) error {
+	life := lm.GetMain()
+	lc := life.GetLifeCycle()
+	return inst.innerRunLC(lc)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type LifeCycleStageLogger struct {
+	logger Logger
+}
+
+// GetLifeCycle implements [Life].
+func (inst *LifeCycleStageLogger) GetLifeCycle() *LifeCycle {
+	lc := new(LifeCycle)
+
+	lc.OnInit = inst.innerOnInit
+
+	lc.OnCreate = inst.innerOnCreate
+	lc.OnStart = inst.innerOnStart
+	lc.OnResume = inst.innerOnResume
+	lc.OnRun = inst.innerOnRun
+	lc.OnPause = inst.innerOnPause
+	lc.OnStop = inst.innerOnStop
+	lc.OnDestroy = inst.innerOnDestroy
+
+	return lc
+}
+
+// GetInfo implements [Part].
+func (inst *LifeCycleStageLogger) GetInfo() *PartInfo {
+	info := new(PartInfo)
+	info.Name = "LifeCycleStageLogger"
+	info.Part = inst
+	return info
+}
+
+func (inst *LifeCycleStageLogger) innerOnInit(ec *Context) error {
+	inst.logger = ec.Logger
+	return inst.innerLogStage("OnInit")
+}
+
+func (inst *LifeCycleStageLogger) innerLogStage(stage string) error {
+	inst.logger.Info("engine.lifecycle.%s()", stage)
+	return nil
+}
+
+func (inst *LifeCycleStageLogger) innerOnCreate() error  { return inst.innerLogStage("OnCreate") }
+func (inst *LifeCycleStageLogger) innerOnStart() error   { return inst.innerLogStage("OnStart") }
+func (inst *LifeCycleStageLogger) innerOnResume() error  { return inst.innerLogStage("OnResume") }
+func (inst *LifeCycleStageLogger) innerOnRun() error     { return inst.innerLogStage("OnRun") }
+func (inst *LifeCycleStageLogger) innerOnPause() error   { return inst.innerLogStage("OnPause") }
+func (inst *LifeCycleStageLogger) innerOnStop() error    { return inst.innerLogStage("OnStop") }
+func (inst *LifeCycleStageLogger) innerOnDestroy() error { return inst.innerLogStage("OnDestroy") }
+
+func (inst *LifeCycleStageLogger) _impl() (Life, Part) {
+	return inst, inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // EOF

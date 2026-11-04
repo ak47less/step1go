@@ -34,6 +34,13 @@ func main() {
 
 	cfg.InstrumentFactory = insfr
 
+	// parts
+
+	lcsl := new(lite.LifeCycleStageLogger)
+
+	cfg.Parts = append(cfg.Parts, insfr)
+	cfg.Parts = append(cfg.Parts, lcsl)
+
 	// run
 
 	err = lite.Run(cfg)

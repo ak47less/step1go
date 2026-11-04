@@ -23,6 +23,8 @@ type Configuration struct {
 	StepListCapacity  uint // the list max size
 	TrackListCapacity uint // the list max size
 
+	Parts []any // [Part|PartFactory|PartRegistration]
+
 	Monitor *MonitorConfig // 如果这项配置为 nil, 表示不使用 Monitor
 }
 

@@ -22,6 +22,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	engine := new(innerEngine)
 	driver := cfg.Driver
 	lm := NewLifeManager()
+	parts := NewPartContext(ctx)
 	acfactory := driver.GetAudioContextFactory()
 	ac := acfactory.NewAudioContext()
 	tc := new(TransportContext)
@@ -62,6 +63,8 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	pt1.At = tl1
 
 	ctx.LifeManager = lm
+	ctx.PartManager = parts.Manager
+	ctx.PartRegistry = parts.Registry
 	ctx.Configuration = cfg
 	ctx.Engine = engine
 	ctx.AudioContext = ac
@@ -85,7 +88,70 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	}
 	ctx.SequencerContext = seq.GetContext()
 
+	// init parts
+	err = inst.innerInitParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// init life-cycle
+	err = inst.innerInitLifeCycle(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return ctx.Engine, nil
+}
+
+func (inst *innerEngineFactory) innerInitParts(ec *Context) error {
+
+	cfg := ec.Configuration
+	src := cfg.Parts
+	pr := ec.PartRegistry
+	var err error
+
+	for _, p := range src {
+
+		part, ok := p.(Part)
+		if ok {
+			err = pr.RegisterPart(part)
+		}
+
+		factory, ok := p.(PartFactory)
+		if ok {
+			err = pr.RegisterFactory(factory)
+		}
+
+		registration, ok := p.(*PartRegistration)
+		if ok {
+			err = pr.Register(registration)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *innerEngineFactory) innerInitLifeCycle(ec *Context) error {
+
+	src := ec.PartManager
+	dst := ec.LifeManager
+	namelist := src.ListNames()
+
+	for _, name := range namelist {
+		part, err := src.FindPartByName(name)
+		if err != nil {
+			return err
+		}
+		life, ok := part.(Life)
+		if ok {
+			dst.Add(life)
+		}
+	}
+	return nil
 }
 
 func (inst *innerEngineFactory) _impl() EngineFactory {
