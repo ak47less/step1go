@@ -2,7 +2,8 @@ package lite
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/ak47less/step1go/common"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +13,10 @@ func handleError(err error) {
 	if err == nil {
 		return
 	}
-	log.Println(err.Error())
+
+	// log.Println(err.Error())
+
+	common.Log().Error("%s", err.Error())
 
 }
 

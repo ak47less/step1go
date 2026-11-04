@@ -301,6 +301,62 @@ func (inst *innerMainLife) _impl() Life {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type innerItemLifeCaller struct {
+	context *innerLifeCycleContext
+}
+
+func (inst *innerItemLifeCaller) callInitFn(ec *EngineContext, fn LifeCycleInitFunc) {
+	if ec == nil || fn == nil {
+		return
+	}
+	err := fn(ec)
+	handleError(err)
+}
+
+func (inst *innerItemLifeCaller) callStageFn(fn LifeCycleStageFunc) {
+	if fn == nil {
+		return
+	}
+	err := fn()
+	handleError(err)
+}
+
+func (inst *innerItemLifeCaller) call(l Life) {
+
+	if l == nil || inst == nil {
+		return
+	}
+
+	lc := l.GetLifeCycle()
+	ctx := inst.context
+
+	if lc == nil || ctx == nil {
+		return
+	}
+
+	ec := ctx.ec
+
+	if ctx.onInitDone && (ec != nil) {
+		inst.callInitFn(ec, lc.OnInit)
+	}
+
+	if ctx.onCreateDone {
+		inst.callStageFn(lc.OnCreate)
+	}
+
+	if ctx.onStartDone {
+		inst.callStageFn(lc.OnStart)
+	}
+
+	if !ctx.paused {
+		inst.callStageFn(lc.OnResume)
+		inst.callStageFn(lc.OnRun)
+	}
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 type innerLifeManager struct {
 	context *innerLifeCycleContext
 }
@@ -321,6 +377,10 @@ func (inst *innerLifeManager) Add(l Life) {
 
 	inst.context.all = all
 	inst.context.cache = nil
+
+	var caller innerItemLifeCaller
+	caller.context = inst.context
+	caller.call(l)
 }
 
 // GetMain implements [LifeManager].
