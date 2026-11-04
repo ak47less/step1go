@@ -168,9 +168,9 @@ func (inst *innerMainLife) innerLoadCache(c *innerLifeCycleCache) error {
 		dst = append(dst, lc)
 	}
 
-	sort.Slice(c.list, func(i, j int) bool {
-		o1 := c.list[i]
-		o2 := c.list[j]
+	sort.Slice(dst, func(i, j int) bool {
+		o1 := dst[i]
+		o2 := dst[j]
 		return (o1.Order < o2.Order)
 	})
 
