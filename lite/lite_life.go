@@ -346,11 +346,12 @@ func (inst *innerItemLifeCaller) call(l Life) {
 
 	if ctx.onStartDone {
 		inst.callStageFn(lc.OnStart)
-	}
 
-	if !ctx.paused {
-		inst.callStageFn(lc.OnResume)
-		inst.callStageFn(lc.OnRun)
+		if !ctx.paused {
+			inst.callStageFn(lc.OnResume)
+			inst.callStageFn(lc.OnRun)
+		}
+
 	}
 
 }

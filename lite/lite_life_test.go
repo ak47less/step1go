@@ -235,3 +235,182 @@ func TestLifeManagerInitRequiresEngineContext(t *testing.T) {
 		t.Error("OnInit(nil) returned nil error")
 	}
 }
+
+func TestLifeManagerAddReplaysCurrentLifeCycleState(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(*testing.T, *LifeCycle)
+		want    []string
+	}{
+		{
+			name: "not started",
+		},
+		{
+			name: "initialized",
+			prepare: func(t *testing.T, cycle *LifeCycle) {
+				if err := cycle.OnInit(new(EngineContext)); err != nil {
+					t.Fatalf("OnInit() returned error: %v", err)
+				}
+			},
+			want: []string{"added:init"},
+		},
+		{
+			name: "created",
+			prepare: func(t *testing.T, cycle *LifeCycle) {
+				if err := cycle.OnInit(new(EngineContext)); err != nil {
+					t.Fatalf("OnInit() returned error: %v", err)
+				}
+				if err := cycle.OnCreate(); err != nil {
+					t.Fatalf("OnCreate() returned error: %v", err)
+				}
+			},
+			want: []string{"added:init", "added:create"},
+		},
+		{
+			name: "started",
+			prepare: func(t *testing.T, cycle *LifeCycle) {
+				if err := cycle.OnInit(new(EngineContext)); err != nil {
+					t.Fatalf("OnInit() returned error: %v", err)
+				}
+				if err := cycle.OnCreate(); err != nil {
+					t.Fatalf("OnCreate() returned error: %v", err)
+				}
+				if err := cycle.OnStart(); err != nil {
+					t.Fatalf("OnStart() returned error: %v", err)
+				}
+			},
+			want: []string{"added:init", "added:create", "added:start", "added:resume", "added:run"},
+		},
+		{
+			name: "paused",
+			prepare: func(t *testing.T, cycle *LifeCycle) {
+				if err := cycle.OnInit(new(EngineContext)); err != nil {
+					t.Fatalf("OnInit() returned error: %v", err)
+				}
+				if err := cycle.OnCreate(); err != nil {
+					t.Fatalf("OnCreate() returned error: %v", err)
+				}
+				if err := cycle.OnStart(); err != nil {
+					t.Fatalf("OnStart() returned error: %v", err)
+				}
+				if err := cycle.OnPause(); err != nil {
+					t.Fatalf("OnPause() returned error: %v", err)
+				}
+			},
+			want: []string{"added:init", "added:create", "added:start"},
+		},
+		{
+			name: "resumed",
+			prepare: func(t *testing.T, cycle *LifeCycle) {
+				if err := cycle.OnInit(new(EngineContext)); err != nil {
+					t.Fatalf("OnInit() returned error: %v", err)
+				}
+				if err := cycle.OnCreate(); err != nil {
+					t.Fatalf("OnCreate() returned error: %v", err)
+				}
+				if err := cycle.OnStart(); err != nil {
+					t.Fatalf("OnStart() returned error: %v", err)
+				}
+				if err := cycle.OnPause(); err != nil {
+					t.Fatalf("OnPause() returned error: %v", err)
+				}
+				if err := cycle.OnResume(); err != nil {
+					t.Fatalf("OnResume() returned error: %v", err)
+				}
+			},
+			want: []string{"added:init", "added:create", "added:start", "added:resume", "added:run"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := NewLifeManager()
+			cycle := manager.GetMain().GetLifeCycle()
+			if tt.prepare != nil {
+				tt.prepare(t, cycle)
+			}
+
+			var calls []string
+			manager.Add(newLifeManagerTestLife("added", 1, &calls))
+
+			if !reflect.DeepEqual(calls, tt.want) {
+				t.Errorf("life cycle calls = %v, want %v", calls, tt.want)
+			}
+		})
+	}
+}
+
+func TestLifeManagerAddPassesEngineContextToInit(t *testing.T) {
+	manager := NewLifeManager()
+	ec := new(EngineContext)
+	if err := manager.GetMain().GetLifeCycle().OnInit(ec); err != nil {
+		t.Fatalf("OnInit() returned error: %v", err)
+	}
+
+	var got *EngineContext
+	manager.Add(&lifeManagerTestLife{cycle: &LifeCycle{
+		OnInit: func(ec *EngineContext) error {
+			got = ec
+			return nil
+		},
+	}})
+
+	if got != ec {
+		t.Errorf("OnInit() context = %p, want %p", got, ec)
+	}
+}
+
+func TestLifeManagerAddContinuesAfterCallbackError(t *testing.T) {
+	wantErr := errors.New("callback failed")
+	var calls []string
+	ctx := &innerLifeCycleContext{
+		ec:           new(EngineContext),
+		onInitDone:   true,
+		onCreateDone: true,
+		onStartDone:  true,
+	}
+	caller := &innerItemLifeCaller{context: ctx}
+	life := &lifeManagerTestLife{cycle: &LifeCycle{
+		OnInit: func(*EngineContext) error {
+			calls = append(calls, "init")
+			return wantErr
+		},
+		OnCreate: func() error {
+			calls = append(calls, "create")
+			return wantErr
+		},
+		OnStart: func() error {
+			calls = append(calls, "start")
+			return nil
+		},
+		OnResume: func() error {
+			calls = append(calls, "resume")
+			return nil
+		},
+		OnRun: func() error {
+			calls = append(calls, "run")
+			return nil
+		},
+	}}
+
+	caller.call(life)
+
+	want := []string{"init", "create", "start", "resume", "run"}
+	if !reflect.DeepEqual(calls, want) {
+		t.Errorf("life cycle calls = %v, want %v", calls, want)
+	}
+}
+
+func TestInnerItemLifeCallerHandlesNilInputs(t *testing.T) {
+	var calls []string
+	life := newLifeManagerTestLife("added", 1, &calls)
+	caller := &innerItemLifeCaller{}
+
+	caller.call(life)
+	caller.call(nil)
+	caller.call(&lifeManagerTestLife{})
+
+	if len(calls) != 0 {
+		t.Errorf("life cycle calls = %v, want no calls", calls)
+	}
+}
