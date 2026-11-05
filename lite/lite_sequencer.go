@@ -55,6 +55,35 @@ type SequencerContext struct {
 	Updating bool // 1 表示有内容需要更新
 }
 
+func (inst *SequencerContext) ComputeStepLocation(pos *RelativePosition) StepLocation {
+
+	abs := pos.Absolute()
+	wkline := inst.EngineContext.WorkTileline
+	rp2 := abs.Relative(wkline, nil)
+
+	const min_sps = 0.001
+	sps := inst.SecondsPerStep
+	if sps < min_sps {
+		sps = min_sps
+	}
+
+	location := rp2.Position / sps
+	return StepLocation(location)
+}
+
+func (inst *SequencerContext) ComputeStepIndex(pos *RelativePosition) StepIndex {
+
+	location := inst.ComputeStepLocation(pos)
+	cnt_step := inst.Cube.Steps.Length()
+
+	if cnt_step < 1 {
+		return 0
+	}
+
+	idx := uint(location) / cnt_step
+	return StepIndex(idx)
+}
+
 func (inst *SequencerContext) NewBank(index BankIndex) *Bank {
 
 	b := &Bank{}

@@ -36,7 +36,7 @@ func DefaultConfig() *Configuration {
 	cfg.Driver = driver
 	cfg.SampleRate = 44100
 
-	cfg.Profile = (new(SimpleProfile)).Init()
+	cfg.Profile = (new(SimpleProfile)).Init().SetSpeed(280)
 
 	cfg.BankListCapacity = 8
 	cfg.StepListCapacity = 128

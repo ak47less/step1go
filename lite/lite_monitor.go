@@ -1,12 +1,19 @@
 package lite
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+////////////////////////////////////////////////////////////////////////////////
 
 type monitoring struct {
 	timer   *Timer
 	context *Context
 	logger  Logger
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 type Monitor struct {
 	context       *EngineContext
@@ -64,11 +71,13 @@ func (inst *Monitor) ontimer(tm *Timer) error {
 	}
 
 	tasklist = append(tasklist, inst.innerLogBar)
+
 	tasklist = append(tasklist, inst.innerLogEngineState)
 	tasklist = append(tasklist, inst.innerLogTransportState)
 	tasklist = append(tasklist, inst.innerLogPosition)
 	tasklist = append(tasklist, inst.innerLogKeyInput)
 	tasklist = append(tasklist, inst.innerLogSTC)
+	tasklist = append(tasklist, inst.innerLogCube)
 
 	for _, task := range tasklist {
 		err := task(mo)
@@ -149,6 +158,13 @@ func (inst *Monitor) innerLogPosition(mo *monitoring) error {
 	return nil
 }
 
+func (inst *Monitor) innerLogCube(mo *monitoring) error {
+
+	var cml innerCubeMonitorLogger
+	cml.log(mo)
+	return nil
+}
+
 func (inst *Monitor) innerLogKeyInput(mo *monitoring) error {
 
 	const f = "input.[key count:%d code:%d char:'%s']"
@@ -167,3 +183,98 @@ func (inst *Monitor) innerLogBar(mo *monitoring) error {
 	logger.Info(bar)
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// innerCubeMonitorLogger
+
+type innerCubeMonitorLogger struct {
+	charCurrentSound rune
+	charCurrentMute  rune
+	charNormalSound  rune
+	charNormalMute   rune
+}
+
+func (inst *innerCubeMonitorLogger) log(mo *monitoring) {
+
+	inst.charCurrentMute = 'x'
+	inst.charCurrentSound = '@'
+	inst.charNormalMute = '_'
+	inst.charNormalSound = 'o'
+
+	sc := mo.context.SequencerContext
+	bank, err := sc.CurrentBankHolder.GetBank()
+
+	if err == nil && bank != nil {
+		inst.logbank(mo, bank)
+	}
+
+}
+
+func (inst *innerCubeMonitorLogger) logbank(mo *monitoring, bank *Bank) {
+
+	context := mo.context
+	sc := context.SequencerContext
+	cube := &sc.Cube
+
+	istep_now := sc.STC.Realtime.Index
+
+	tracks := bank.Tracks
+	builder := new(strings.Builder)
+	step_cnt := cube.Steps.Length()
+	track_cnt := cube.Tracks.Length()
+
+	for _, track_item := range tracks {
+
+		cells := &track_item.Cells
+		builder.Reset()
+
+		for _, step_cell := range cells.list {
+
+			istep := step_cell.StepIndex
+			if uint(istep) > step_cnt {
+				break
+			}
+
+			ch := inst.innerGetCharForCell(step_cell, istep_now)
+			builder.WriteRune(ch)
+		}
+
+		itrack := track_item.Index
+		if uint(itrack) > track_cnt {
+			break
+		}
+
+		builder.WriteString(fmt.Sprintf(" : track_%d", itrack))
+		fmt.Println(builder.String())
+	}
+
+}
+
+func (inst *innerCubeMonitorLogger) innerGetCharForCell(cell *SimpleCell, now StepIndex) rune {
+
+	sound := false
+	hit := (now == cell.StepIndex)
+
+	if cell != nil {
+		if cell.Enabled && (cell.Note != nil) {
+			sound = true
+		}
+	}
+
+	if sound {
+		if hit {
+			return inst.charCurrentSound
+		} else {
+			return inst.charNormalSound
+		}
+	} else {
+		if hit {
+			return inst.charCurrentMute
+		} else {
+			return inst.charNormalMute
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF
