@@ -420,4 +420,65 @@ func (inst *innerTransport) _impl() Transport {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+type AutoEngineController struct {
+	ec *EngineContext
+}
+
+// GetInfo implements [Part].
+func (inst *AutoEngineController) GetInfo() *PartInfo {
+	pi := &PartInfo{}
+	pi.Name = "AutoEngineController"
+	return pi
+}
+
+// GetLifeCycle implements [Life].
+func (inst *AutoEngineController) GetLifeCycle() *LifeCycle {
+	l := &LifeCycle{
+		OnInit: inst.innerOnInit,
+
+		OnCreate:  inst.innerOnCreate,
+		OnStart:   inst.innerOnStart,
+		OnRun:     inst.innerOnRun,
+		OnStop:    inst.innerOnStop,
+		OnDestroy: inst.innerOnDestroy,
+	}
+	return l
+}
+
+func (inst *AutoEngineController) innerOnInit(ec *EngineContext) error {
+	inst.ec = ec
+	return nil
+}
+
+func (inst *AutoEngineController) innerOnCreate() error {
+	eng := inst.ec.Engine
+	return eng.Create()
+}
+
+func (inst *AutoEngineController) innerOnStart() error {
+	eng := inst.ec.Engine
+	return eng.Start()
+}
+
+func (inst *AutoEngineController) innerOnRun() error {
+	eng := inst.ec.Engine
+	return eng.Join()
+}
+
+func (inst *AutoEngineController) innerOnStop() error {
+	eng := inst.ec.Engine
+	return eng.Stop()
+}
+
+func (inst *AutoEngineController) innerOnDestroy() error {
+	eng := inst.ec.Engine
+	return eng.Destroy()
+}
+
+func (inst *AutoEngineController) _impl() (Part, Life) {
+	return inst, inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // EOF

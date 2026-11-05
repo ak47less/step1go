@@ -37,9 +37,11 @@ func main() {
 	// parts
 
 	lcsl := new(lite.LifeCycleStageLogger)
+	aec := new(lite.AutoEngineController)
 
 	cfg.Parts = append(cfg.Parts, insfr)
 	cfg.Parts = append(cfg.Parts, lcsl)
+	cfg.Parts = append(cfg.Parts, aec)
 
 	// run
 

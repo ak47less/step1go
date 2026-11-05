@@ -15,7 +15,7 @@ type innerSequencer struct {
 
 // GetBanks implements [Sequencer].
 func (inst *innerSequencer) GetBanks() []*Bank {
-	return inst.context.Banks.Items()
+	return inst.context.Cube.Banks
 }
 
 // GetContext implements [Sequencer].
@@ -25,12 +25,12 @@ func (inst *innerSequencer) GetContext() *SequencerContext {
 
 // GetSteps implements [Sequencer].
 func (inst *innerSequencer) GetSteps() []*Step {
-	return inst.context.Steps.Items()
+	return inst.context.Cube.Steps
 }
 
 // GetTracks implements [Sequencer].
 func (inst *innerSequencer) GetTracks() []*Track {
-	return inst.context.Tracks.Items()
+	return inst.context.Cube.Tracks
 }
 
 // OnClock implements [Sequencer].
@@ -126,9 +126,9 @@ func (inst *innerSequencerUpdater) innerDoComputeSpeed(sc *SequencerContext) err
 
 func (inst *innerSequencerUpdater) innerDoLoadCurrentBank(sc *SequencerContext) error {
 
-	banklist := sc.Banks.Items()
+	banklist := sc.Cube.Banks
 	idx := int(sc.CurrentBankIndex)
-	size := len(banklist)
+	size := int(banklist.Length())
 
 	if idx >= size {
 		return fmt.Errorf("innerSequencerUpdater: bank index is out of array [index:%d size:%d] ", idx, size)
@@ -152,43 +152,92 @@ func (inst *innerSequencerUpdater) innerDoLoadCurrentBank(sc *SequencerContext) 
 
 func (inst *innerSequencerUpdater) innerPrepareBank(bank *Bank) error {
 
-	if bank == nil {
-		return fmt.Errorf("innerSequencerUpdater: bank is nil")
-	}
-	sc := bank.Context
-	if sc == nil {
-		return fmt.Errorf("innerSequencerUpdater: SequencerContext is nil")
-	}
+	// if bank == nil {
+	// 	return fmt.Errorf("innerSequencerUpdater: bank is nil")
+	// }
+	// sc := bank.Context
+	// if sc == nil {
+	// 	return fmt.Errorf("innerSequencerUpdater: SequencerContext is nil")
+	// }
 
-	var iBank BankIndex = bank.Index
-	var iStep StepIndex = 0
-	var iTrack TrackIndex = 0
+	// var iBank BankIndex = bank.Index
+	// var iStep StepIndex = 0
+	// var iTrack TrackIndex = 0
 
-	stepIdxLimit := StepIndex(sc.Steps.GetSize())
-	trackIdxLimit := TrackIndex(sc.Tracks.GetSize())
-	want := new(Cell)
-	cellman := bank.CellManager
-	const autoMake = true
+	// stepIdxLimit := StepIndex(sc.Steps.GetSize())
+	// trackIdxLimit := TrackIndex(sc.Tracks.GetSize())
+	// want := new(Cell)
+	// cellman := bank.CellManager
+	// const autoMake = true
 
-	for iTrack = 0; iTrack < trackIdxLimit; iTrack++ {
+	// for iTrack = 0; iTrack < trackIdxLimit; iTrack++ {
 
-		for iStep = 0; iStep < stepIdxLimit; iStep++ {
+	// 	for iStep = 0; iStep < stepIdxLimit; iStep++ {
 
-			want.BankIndex = iBank
-			want.StepIndex = iStep
-			want.TrackIndex = iTrack
+	// 		want.BankIndex = iBank
+	// 		want.StepIndex = iStep
+	// 		want.TrackIndex = iTrack
 
-			have, err := cellman.OpenCell(want, autoMake)
-			if err != nil {
-				return err
-			}
+	// 		have, err := cellman.OpenCell(want, autoMake)
+	// 		if err != nil {
+	// 			return err
+	// 		}
 
-			if have.Complex == nil {
-			}
-		}
-	}
+	// 		if have.Complex == nil {
+	// 		}
+	// 	}
+	// }
+
+	// todo ...
 
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type innerCurrentBankHolder struct {
+	context *SequencerContext
+}
+
+// GetBank implements [BankHolder].
+func (inst *innerCurrentBankHolder) GetBank() (*Bank, error) {
+
+	bank := inst.context.CurrentBank
+
+	if bank == nil {
+		b2, err := inst.innerLoadBank()
+		if err != nil {
+			return nil, err
+		}
+		bank = b2
+		inst.context.CurrentBank = b2
+	}
+
+	return bank, nil
+}
+
+func (inst *innerCurrentBankHolder) innerLoadBank() (*Bank, error) {
+
+	idx := inst.context.CurrentBankIndex
+	blist := inst.context.Cube.Banks
+	bank := blist.Get(uint(idx))
+
+	if bank == nil {
+		bank = blist.Get(0)
+	}
+
+	if bank == nil {
+		return nil, fmt.Errorf("innerCurrentBankHolder: current bank is nil")
+	}
+
+	idx = bank.Index
+	inst.context.CurrentBankIndex = idx
+
+	return bank, nil
+}
+
+func (inst *innerCurrentBankHolder) _impl() BankHolder {
+	return inst
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -203,22 +252,22 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	seq := new(innerSequencer)
 	cfg := ec.Configuration
 	trigger := new(innerSequencerTrigger)
-	cellman := new(CellManager)
+	bankHolder := new(innerCurrentBankHolder)
 
 	seq.context = sc
 	trigger.context = sc
+	bankHolder.context = sc
 
 	ec.Clock.AddListener(trigger)
 
 	sc.Sequencer = seq
-	sc.Banks.Init(cfg.BankListSize, cfg.BankListCapacity)
-	sc.Steps.Init(cfg.StepListSize, cfg.StepListCapacity)
-	sc.Tracks.Init(cfg.TrackListSize, cfg.TrackListCapacity)
 	sc.Engine = ec.Engine
 	sc.EngineContext = ec
 	sc.Updating = true
 	sc.StepsPerBeat = 2
-	sc.CellManager = cellman
+	sc.CurrentBankHolder = bankHolder
+
+	sc.Cube.Init(sc, cfg)
 
 	return sc.Sequencer, nil
 }

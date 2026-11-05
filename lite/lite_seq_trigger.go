@@ -152,11 +152,12 @@ func (inst *innerSequencerTrigger) innerDoPrepare(stc *StepTickContext) (*StepTi
 
 	seqctx := inst.context
 	engctx := seqctx.EngineContext
+	cube := &seqctx.Cube
 
 	stc.wktline = engctx.WorkTileline
 	stc.context = seqctx
 
-	count := seqctx.Steps.GetSize()
+	count := cube.Steps.Length()
 	preload := count / 4
 
 	stc.StepCount = count
