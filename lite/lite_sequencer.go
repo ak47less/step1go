@@ -67,7 +67,7 @@ func (inst *SequencerContext) ComputeStepLocation(pos *RelativePosition) StepLoc
 		sps = min_sps
 	}
 
-	location := rp2.Position / sps
+	location := rp2.Pos / sps
 	return StepLocation(location)
 }
 

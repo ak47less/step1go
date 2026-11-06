@@ -203,11 +203,11 @@ func TestAbsolutePositionRelative(t *testing.T) {
 			if got == nil {
 				t.Fatal("Relative() returned nil")
 			}
-			if got.Position != tt.want {
-				t.Errorf("Position = %v, want %v", got.Position, tt.want)
+			if got.Pos != tt.want {
+				t.Errorf("Position = %v, want %v", got.Pos, tt.want)
 			}
-			if got.At != tt.wantAt {
-				t.Errorf("At = %p, want %p", got.At, tt.wantAt)
+			if got.Ref != tt.wantAt {
+				t.Errorf("At = %p, want %p", got.Ref, tt.wantAt)
 			}
 		})
 	}
@@ -216,8 +216,8 @@ func TestAbsolutePositionRelative(t *testing.T) {
 func TestAbsolutePositionRelativeReusesDestination(t *testing.T) {
 	base := &Timeline{Offset: 2}
 	dst := &RelativePosition{
-		At:       &Timeline{},
-		Position: 99,
+		Ref: &Timeline{},
+		Pos: 99,
 	}
 
 	got := AbsolutePosition(10).Relative(base, dst)
@@ -225,11 +225,11 @@ func TestAbsolutePositionRelativeReusesDestination(t *testing.T) {
 	if got != dst {
 		t.Fatal("Relative() did not return the supplied destination")
 	}
-	if got.At != base {
-		t.Errorf("At = %p, want %p", got.At, base)
+	if got.Ref != base {
+		t.Errorf("At = %p, want %p", got.Ref, base)
 	}
-	if got.Position != 8 {
-		t.Errorf("Position = %v, want 8", got.Position)
+	if got.Pos != 8 {
+		t.Errorf("Position = %v, want 8", got.Pos)
 	}
 }
 
@@ -239,14 +239,14 @@ func TestAbsolutePositionRelativeWithNilBase(t *testing.T) {
 	if got == nil {
 		t.Fatal("Relative() returned nil")
 	}
-	if got.At == nil {
+	if got.Ref == nil {
 		t.Fatal("Relative() did not create a base timeline")
 	}
-	if got.At.GetTotalOffset() != 0 {
-		t.Errorf("base offset = %v, want 0", got.At.GetTotalOffset())
+	if got.Ref.GetTotalOffset() != 0 {
+		t.Errorf("base offset = %v, want 0", got.Ref.GetTotalOffset())
 	}
-	if got.Position != 10 {
-		t.Errorf("Position = %v, want 10", got.Position)
+	if got.Pos != 10 {
+		t.Errorf("Position = %v, want 10", got.Pos)
 	}
 }
 
@@ -267,27 +267,27 @@ func TestRelativePositionAbsolute(t *testing.T) {
 		},
 		{
 			name: "root timeline",
-			pos:  &RelativePosition{At: root, Position: 10},
+			pos:  &RelativePosition{Ref: root, Pos: 10},
 			want: 10,
 		},
 		{
 			name: "nil timeline",
-			pos:  &RelativePosition{Position: 10},
+			pos:  &RelativePosition{Pos: 10},
 			want: 10,
 		},
 		{
 			name: "timeline with offset",
-			pos:  &RelativePosition{At: child, Position: 7.5},
+			pos:  &RelativePosition{Ref: child, Pos: 7.5},
 			want: 10,
 		},
 		{
 			name: "nested timeline offsets",
-			pos:  &RelativePosition{At: grandchild, Position: 6.25},
+			pos:  &RelativePosition{Ref: grandchild, Pos: 6.25},
 			want: 10,
 		},
 		{
 			name: "negative position",
-			pos:  &RelativePosition{At: grandchild, Position: -2.75},
+			pos:  &RelativePosition{Ref: grandchild, Pos: -2.75},
 			want: 1,
 		},
 	}

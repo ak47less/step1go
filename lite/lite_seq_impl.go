@@ -253,6 +253,7 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	cfg := ec.Configuration
 	trigger := new(innerSequencerTrigger)
 	bankHolder := new(innerCurrentBankHolder)
+	stc := new(StepTickContext)
 
 	seq.context = sc
 	trigger.context = sc
@@ -260,6 +261,9 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 
 	ec.Clock.AddListener(trigger)
 
+	stc.context = sc
+
+	sc.STC = stc
 	sc.Sequencer = seq
 	sc.Engine = ec.Engine
 	sc.EngineContext = ec

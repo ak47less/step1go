@@ -9,8 +9,8 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 
 type ClockEvent struct {
-	Clock   *Clock
-	Time    *RelativePosition
+	Clock   Clock
+	Time    AbsolutePosition
 	Context *Context
 }
 
@@ -18,16 +18,28 @@ type ClockListener interface {
 	OnClock(ce *ClockEvent) error
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+type Clock interface {
+	AddListener(l ClockListener)
+
+	RemoveListener(l ClockListener)
+
+	Dispatch(ce *ClockEvent) error
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /**************************/
-/*  class Clock           */
+/*  class SimpleClock           */
 /**************************/
 
-type Clock struct {
+type SimpleClock struct {
 	mu        sync.RWMutex
 	listeners []ClockListener
 }
 
-func (inst *Clock) AddListener(l ClockListener) {
+func (inst *SimpleClock) AddListener(l ClockListener) {
 	if isNilClockListener(l) {
 		return
 	}
@@ -43,7 +55,7 @@ func (inst *Clock) AddListener(l ClockListener) {
 	inst.listeners = append(inst.listeners, l)
 }
 
-func (inst *Clock) RemoveListener(l ClockListener) {
+func (inst *SimpleClock) RemoveListener(l ClockListener) {
 	if isNilClockListener(l) {
 		return
 	}
@@ -60,7 +72,7 @@ func (inst *Clock) RemoveListener(l ClockListener) {
 	inst.listeners = listeners
 }
 
-func (inst *Clock) Dispatch(ce *ClockEvent) error {
+func (inst *SimpleClock) Dispatch(ce *ClockEvent) error {
 	if ce == nil {
 		return errors.New("lite: nil clock event")
 	}
@@ -116,6 +128,10 @@ func sameClockListener(a ClockListener, b ClockListener) bool {
 		return false
 	}
 	return a == b
+}
+
+func (inst *SimpleClock) _impl() Clock {
+	return inst
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -32,7 +32,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	pt1 := new(RelativePosition) // work
 	trans := new(innerTransport)
 	timer := new(Timer)
-	clock := new(Clock)
+	clock := new(SimpleClock)
 	seqfactory := new(innerSequencerFactory)
 	insfactory := cfg.InstrumentFactory
 	ih := new(DefaultInstrumentHolder)
@@ -59,8 +59,8 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	tl1.Profile = profile
 	tl1.Parent = tl0
 
-	pt0.At = tl0
-	pt1.At = tl1
+	pt0.Ref = tl0
+	pt1.Ref = tl1
 
 	ctx.LifeManager = lm
 	ctx.PartManager = parts.Manager
@@ -73,8 +73,6 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.TransportContext = tc
 	ctx.RootTileline = tl0
 	ctx.WorkTileline = tl1
-	ctx.CurrentAtRoot = pt0
-	ctx.CurrentAtWork = pt1
 	ctx.Timer = timer
 	ctx.TimerHandler = trans.ontimer
 	ctx.Clock = clock
@@ -82,11 +80,19 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.MainInstrumentFactory = insfactory
 	ctx.CurrentInstrumentHolder = ih
 
+	// Sequencer, rtc & stc
+
 	seq, err := seqfactory.CreateSequencer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ctx.SequencerContext = seq.GetContext()
+
+	sc := seq.GetContext()
+	stc := sc.STC
+	rtc := &ctx.RTC
+
+	stc.RTC = rtc
 
 	// init parts
 	err = inst.innerInitParts(ctx)
@@ -277,7 +283,7 @@ func (inst *innerTransport) Paused() bool {
 func (inst *innerTransport) Play() error {
 
 	tc := inst.tc
-	current := inst.ctx.CurrentAtWork.Clone()
+	current := inst.ctx.RTC.Normal.Position.Clone()
 
 	tc.playing = true
 	tc.rebaseToNewPosition = current
@@ -311,7 +317,7 @@ func (inst *innerTransport) Recording() bool {
 func (inst *innerTransport) Resume() error {
 
 	tc := inst.tc
-	current := inst.ctx.CurrentAtWork.Clone()
+	current := inst.ctx.RTC.Normal.Position.Clone()
 
 	tc.paused = false
 	tc.rebaseToNewPosition = current
@@ -355,13 +361,13 @@ func (inst *innerTransport) innerCheckUpdate() error {
 // 重新确定基准位置
 func (inst *innerTransport) innerRebaseCurrentPos(ctx *Context, to *RelativePosition) error {
 
-	pos := to.Position
+	pos := to.Pos
 	line_wk := ctx.WorkTileline
-	current_pos_abs := ctx.CurrentAtRoot.Absolute()
-	current_pos_wk := ctx.CurrentAtWork
+	current_pos_abs := ctx.RTC.Raw.Position.Absolute()
+	current_pos_wk := ctx.RTC.Precision.Position
 
-	current_pos_wk.At = line_wk
-	current_pos_wk.Position = pos
+	current_pos_wk.Ref = line_wk
+	current_pos_wk.Pos = pos
 	line_wk.Offset = Seconds(current_pos_abs) - pos
 
 	return nil
@@ -373,15 +379,15 @@ func (inst *innerTransport) innerUpdateCurrentPos() error {
 	ac := ctx.AudioContext
 	t0 := ac.GetCurrentTime()
 	tc := ctx.TransportContext
-	pos_at_root := ctx.CurrentAtRoot
-	pos_at_work := ctx.CurrentAtWork
+	pos_at_root := &ctx.RTC.Raw.Position       // root
+	pos_at_work := &ctx.RTC.Precision.Position // work
 	rebase := tc.rebaseToNewPosition
 
-	pos_at_root.Position = t0
+	pos_at_root.Pos = t0
 
 	if tc.running {
-		off := pos_at_work.At.GetTotalOffset()
-		pos_at_work.Position = t0 - off
+		off := pos_at_work.Ref.GetTotalOffset()
+		pos_at_work.Pos = t0 - off
 	}
 
 	if rebase != nil {
@@ -409,7 +415,7 @@ func (inst *innerTransport) ontimer(t *Timer) error {
 
 	evt.Clock = clock
 	evt.Context = ctx
-	evt.Time = ctx.CurrentAtWork
+	evt.Time = ctx.RTC.Precision.Position.Absolute()
 
 	return clock.Dispatch(evt)
 }

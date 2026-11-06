@@ -146,8 +146,8 @@ func (ap AbsolutePosition) Relative(base *Timeline, dst *RelativePosition) *Rela
 
 	off := base.GetTotalOffset()
 
-	dst.At = base
-	dst.Position = Seconds(ap) - off // the rel = ( abs - off )
+	dst.Ref = base
+	dst.Pos = Seconds(ap) - off // the rel = ( abs - off )
 
 	return dst
 }
@@ -158,8 +158,8 @@ func (ap AbsolutePosition) Relative(base *Timeline, dst *RelativePosition) *Rela
 
 // RelativePosition  表示相对于 Timeline 原点的位置
 type RelativePosition struct {
-	At       *Timeline
-	Position Seconds
+	Ref *Timeline
+	Pos Seconds
 }
 
 // 转换为绝对值
@@ -167,9 +167,9 @@ func (inst *RelativePosition) Absolute() AbsolutePosition {
 	if inst == nil {
 		return 0
 	}
-	at := inst.At
+	at := inst.Ref
 	off := at.GetTotalOffset()
-	rel := inst.Position
+	rel := inst.Pos
 	return AbsolutePosition(off + rel) // = abs
 }
 
@@ -238,6 +238,12 @@ func (inst *Timer) sec2du(sec Seconds) time.Duration {
 	const min = time.Millisecond
 	f := sec * Seconds(time.Second)
 	return max(time.Duration(f), min)
+}
+
+type RTC struct {
+	Precision StepTickPos // now@work (精准的位置)
+	Normal    StepTickPos // now@work (normalized)
+	Raw       StepTickPos // raw@root
 }
 
 ////////////////////////////////////////////////////////////////////////////////

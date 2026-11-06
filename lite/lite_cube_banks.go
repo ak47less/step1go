@@ -214,7 +214,7 @@ func (inst *Bank) OnStep(stc *StepTickContext) error {
 		return fmt.Errorf("param:STC(StepTickContext) is nil")
 	}
 
-	stp := &stc.Current
+	stp := &stc.This
 	idx := stp.Index
 	step := inst.Steps.Get(idx)
 

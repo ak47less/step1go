@@ -28,14 +28,14 @@ type StepTickContext struct {
 	BreakCount   uint    // 中断计数器
 	Broken       bool
 
-	//  prev|current|head||realtime
+	//  front|this|back|rtc
 
-	Ahead    StepTickPos
-	Current  StepTickPos
-	Realtime StepTickPos
-	Previous StepTickPos
+	RTC *RTC
 
-	// list []*StepTickPos
+	Front StepTickPos // 预先加载的位置
+	Back  StepTickPos // 已经加载的位置
+	This  StepTickPos // 正在加载的位置
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,7 +107,7 @@ func (inst *innerSequencerTrigger) innerNormalizeSTP(stp *StepTickPos, stc *Step
 		min_steplen = 0.001
 	)
 
-	pos := stp.Position.Position
+	pos := stp.Position.Pos
 	steplen := stc.StepLength
 	count := stc.StepCount
 
@@ -134,7 +134,7 @@ func (inst *innerSequencerTrigger) innerNormalizeSTP(stp *StepTickPos, stc *Step
 	// align
 	if align {
 		pos = (steplen * Seconds(location))
-		stp.Position.Position = pos
+		stp.Position.Pos = pos
 	}
 
 	return nil
@@ -197,10 +197,9 @@ func (inst *innerSequencerTrigger) innerDoCheckParams(stc *StepTickContext) erro
 		return fmt.Errorf("bad stc.StepLength value: %v", steplen)
 	}
 
-	stc.Ahead.Position.At = tline
-	stc.Current.Position.At = tline
-	stc.Previous.Position.At = tline
-	stc.Realtime.Position.At = tline
+	stc.Front.Position.Ref = tline
+	stc.This.Position.Ref = tline
+	stc.Back.Position.Ref = tline
 
 	return nil
 }
@@ -209,8 +208,8 @@ func (inst *innerSequencerTrigger) innerDoComputeRealtimePos(stc *StepTickContex
 
 	t1 := ce.Time
 	wktlin := stc.wktline
-	dst := &stc.Realtime
-	abs := t1.Absolute()
+	dst := &stc.Front
+	abs := t1
 
 	abs.Relative(wktlin, &dst.Position)
 
@@ -220,8 +219,8 @@ func (inst *innerSequencerTrigger) innerDoComputeRealtimePos(stc *StepTickContex
 
 func (inst *innerSequencerTrigger) innerDoComputeCurrentPos(stc *StepTickContext) error {
 
-	src := &stc.Realtime // src
-	dst := &stc.Current  // dst
+	src := &stc.Front // src
+	dst := &stc.This  // dst
 
 	dst.Position = src.Position
 
@@ -231,14 +230,14 @@ func (inst *innerSequencerTrigger) innerDoComputeCurrentPos(stc *StepTickContext
 
 func (inst *innerSequencerTrigger) innerDoComputeAheadPos(stc *StepTickContext) error {
 
-	ahead := &stc.Ahead     // dst
-	current := &stc.Current // src
+	ahead := &stc.Front  // dst
+	current := &stc.This // src
 
 	sps := stc.StepLength       // in (sec/step)
 	preload := stc.PreloadSteps // in (step)
 
 	t1 := current.Position
-	t1.Position += (sps * Seconds(preload))
+	t1.Pos += (sps * Seconds(preload))
 	ahead.Position = t1
 
 	const align = true
@@ -247,8 +246,8 @@ func (inst *innerSequencerTrigger) innerDoComputeAheadPos(stc *StepTickContext) 
 
 func (inst *innerSequencerTrigger) innerDoFastForward(stc *StepTickContext) error {
 
-	from := &stc.Previous
-	to := &stc.Ahead
+	from := &stc.Back
+	to := &stc.Front
 	steplen := stc.StepLength
 	count := stc.StepCount
 
@@ -265,18 +264,18 @@ func (inst *innerSequencerTrigger) innerDoFastForward(stc *StepTickContext) erro
 		}
 
 		// dispatch clock
-		stc.Current = current
+		stc.This = current
 		err := inst.innerDispatchOnTickEvent(stc)
 		handleError(err)
 
 		// goto next
-		current.Position.Position += steplen
+		current.Position.Pos += steplen
 		current.Location++
 		current.Index = StepIndex(uint(current.Location) % count)
 	}
 
 	current = *to
-	stc.Previous = current
+	stc.Back = current
 	return nil
 }
 

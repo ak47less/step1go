@@ -248,8 +248,8 @@ func (inst *SimpleSynth) noteTime(note *lite.MidiNote) lite.Seconds {
 		return inst.audio.GetCurrentTime()
 	}
 	position := &lite.RelativePosition{
-		At:       note.At,
-		Position: note.Position,
+		Ref: note.At,
+		Pos: note.Position,
 	}
 	return lite.Seconds(position.Absolute())
 }

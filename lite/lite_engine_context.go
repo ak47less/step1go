@@ -24,7 +24,7 @@ type Context struct {
 
 	SequencerContext *SequencerContext
 
-	Clock *Clock
+	Clock Clock
 
 	AudioContext AudioContext
 
@@ -37,10 +37,13 @@ type Context struct {
 	Timer        *Timer
 	TimerHandler func(*Timer) error
 
-	RootTileline  *Timeline
-	WorkTileline  *Timeline
-	CurrentAtWork *RelativePosition
-	CurrentAtRoot *RelativePosition
+	RootTileline *Timeline
+	WorkTileline *Timeline
+
+	// CurrentAtWork *RelativePosition
+	// CurrentAtRoot *RelativePosition
+
+	RTC RTC
 
 	State EngineState
 }
@@ -55,7 +58,7 @@ func (inst *Context) GetPosAtWork(src *RelativePosition) *RelativePosition {
 		return src
 	}
 
-	line1 := src.At
+	line1 := src.Ref
 	line2 := inst.WorkTileline
 
 	if line1 == nil || line2 == nil {

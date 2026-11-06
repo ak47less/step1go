@@ -127,8 +127,8 @@ func (inst *Monitor) innerLogSTC(mo *monitoring) error {
 	txt := ""
 
 	if stc != nil {
-		current := stc.Current
-		pos := current.Position.Position
+		current := stc.Front
+		pos := current.Position.Pos
 		loc := current.Location
 		idx := current.Index
 		txt = fmt.Sprintf("[STC(StepTickContext) location:%d index:%d pos:%f ]", loc, idx, pos)
@@ -146,14 +146,14 @@ func (inst *Monitor) innerLogPosition(mo *monitoring) error {
 	logger := mo.logger
 
 	raw := ec.AudioContext.GetCurrentTime()
-	root := ec.CurrentAtRoot
-	work := ec.CurrentAtWork
+	root := &ec.RTC.Raw.Position
+	work := &ec.RTC.Precision.Position
 
 	if root == nil || work == nil {
 		return fmt.Errorf("context.CurrentAtRoot|context.CurrentAtWork is nil")
 	}
 
-	logger.Info("transport.[position raw:%f root:%f work:%f]", raw, root.Position, work.Position)
+	logger.Info("transport.[position raw:%f root:%f work:%f]", raw, root.Pos, work.Pos)
 
 	return nil
 }
@@ -216,7 +216,7 @@ func (inst *innerCubeMonitorLogger) logbank(mo *monitoring, bank *Bank) {
 	sc := context.SequencerContext
 	cube := &sc.Cube
 
-	istep_now := sc.STC.Realtime.Index
+	istep_now := sc.STC.RTC.Normal.Index
 
 	tracks := bank.Tracks
 	builder := new(strings.Builder)

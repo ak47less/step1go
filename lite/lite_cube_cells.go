@@ -84,20 +84,20 @@ func (inst *SimpleCell) innerDoSimpleCellNote(stc *StepTickContext, note *Note) 
 	noteOn := new(MidiNote)
 	noteOff := new(MidiNote)
 	chl := meta.Channel
-	time := stc.Current
+	time := stc.This
 	steplen := stc.StepLength
 
 	noteOn.Channel = chl
 	noteOn.Key = note.Key
 	noteOn.Velocity = note.Velocity
-	noteOn.Position = time.Position.Position
-	noteOn.At = time.Position.At
+	noteOn.Position = time.Position.Pos
+	noteOn.At = time.Position.Ref
 
 	noteOff.Channel = chl
 	noteOff.Key = note.Key
 	noteOff.Velocity = 0
-	noteOff.Position = time.Position.Position + steplen
-	noteOff.At = time.Position.At
+	noteOff.Position = time.Position.Pos + steplen
+	noteOff.At = time.Position.Ref
 
 	msg.NoteOn = noteOn
 	msg.NoteOff = noteOff
