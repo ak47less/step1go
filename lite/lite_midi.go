@@ -1,13 +1,27 @@
 package lite
 
+type MidiEventType = int
+
+const (
+	METypeMin MidiEventType = iota
+
+	METypeNoteOn
+	METypeNoteOff
+
+	METypeMax
+)
+
+////////////////////////////////////////////////////////////////////////////////
+
 type MidiNote struct {
 
-	// At+Position 共同决定了该消息出现在哪个时刻; 如果 At==nil, 表示这是个即时消息
+	// 事件类型
+	EventType MidiEventType
 
-	At       *Timeline
-	Position Seconds
+	//  如果 Position<0.001 , 表示这是个即时消息
+	Position AbsolutePosition
 
-	Channel  byte
+	Channel  byte             // midi 通道
 	Key      MidiNoteNumber   // 音高
 	Velocity MidiNoteVelocity // 力度(midi.按键速度)
 }

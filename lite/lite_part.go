@@ -57,11 +57,9 @@ type PartRegistry interface {
 
 // PartContext 汇集零部件运行和查找所需的引擎上下文、注册表和管理器。
 type PartContext struct {
-	EC *EngineContext
-
+	EC       *EngineContext
 	Registry PartRegistry
-
-	Manager PartManager
+	Manager  PartManager
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,9 +69,7 @@ type PartMeta struct {
 	ID      PartID
 	Name    PartName
 	Classes []PartClass
-
 	Context *PartContext
-
 	Factory PartFactory
 	Part    Part
 }
