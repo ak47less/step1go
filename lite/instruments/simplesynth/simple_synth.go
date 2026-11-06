@@ -244,14 +244,10 @@ func (inst *SimpleSynth) voiceEnded(key lite.MidiNoteNumber, voice *simpleSynthV
 }
 
 func (inst *SimpleSynth) noteTime(note *lite.MidiNote) lite.Seconds {
-	if note.At == nil {
+	if note.Position < 0.001 {
 		return inst.audio.GetCurrentTime()
 	}
-	position := &lite.RelativePosition{
-		Ref: note.At,
-		Pos: note.Position,
-	}
-	return lite.Seconds(position.Absolute())
+	return lite.Seconds(note.Position)
 }
 
 func (inst *SimpleSynth) prepareNoise(source lite.AudioBufferSourceNode) error {
