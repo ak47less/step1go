@@ -106,7 +106,35 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 		return nil, err
 	}
 
+	// init Instruments
+	err = inst.innerInitInstruments(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return ctx.Engine, nil
+}
+
+func (inst *innerEngineFactory) innerInitInstruments(ec *Context) error {
+
+	holder := ec.CurrentInstrumentHolder
+	cube := &ec.SequencerContext.Cube
+	tracks := cube.Tracks
+
+	in1, err := holder.GetInstrument(ec)
+	if err != nil {
+		return err
+	}
+
+	for _, tr := range tracks {
+		in2 := tr.Meta.Instrument
+		if in2 == nil {
+			in2 = in1
+			tr.Meta.Instrument = in1
+		}
+	}
+
+	return nil
 }
 
 func (inst *innerEngineFactory) innerInitParts(ec *Context) error {
@@ -264,6 +292,11 @@ func (inst *innerEngine) _impl() Engine {
 type innerTransport struct {
 	ctx *Context
 	tc  *TransportContext
+}
+
+// Walking implements [Transport].
+func (inst *innerTransport) Walking() bool {
+	return inst.tc.Walking()
 }
 
 // Pause implements [Transport].

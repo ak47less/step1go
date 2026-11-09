@@ -71,6 +71,8 @@ type Transport interface {
 	Paused() bool
 	Recording() bool
 	Playing() bool
+
+	Walking() bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -79,6 +81,8 @@ type TransportContext struct {
 	paused    bool
 	playing   bool
 	recording bool
+
+	current StepTickPos // current@work
 
 	stopAt *RelativePosition // 如果这个字段不为nil, 表示当前位置停止在这个地方 @work.timeline
 }

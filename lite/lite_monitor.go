@@ -216,7 +216,8 @@ func (inst *innerCubeMonitorLogger) logbank(mo *monitoring, bank *Bank) {
 	sc := context.SequencerContext
 	cube := &sc.Cube
 
-	istep_now := sc.STC.RTC.Normal.Index
+	current_pos := &context.TransportContext.current
+	istep_now := current_pos.Index
 
 	tracks := bank.Tracks
 	builder := new(strings.Builder)

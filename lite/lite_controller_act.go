@@ -108,12 +108,21 @@ func (inst *innerActionHandlerSet) record(ec *EngineContext, ah *ActionEvent) er
 	return ec.Transport.Record()
 }
 
+func (inst *innerActionHandlerSet) innerPauseOrResume(ec *EngineContext, ah *ActionEvent) error {
+	walking := ec.Transport.Walking()
+	if walking {
+		return ec.Transport.Pause()
+	} else {
+		return ec.Transport.Resume()
+	}
+}
+
 func (inst *innerActionHandlerSet) pause(ec *EngineContext, ah *ActionEvent) error {
-	return ec.Transport.Pause()
+	return inst.innerPauseOrResume(ec, ah)
 }
 
 func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionEvent) error {
-	return ec.Transport.Resume()
+	return inst.innerPauseOrResume(ec, ah)
 }
 
 func (inst *innerActionHandlerSet) noteOn(ec *EngineContext, ah *ActionEvent) error {

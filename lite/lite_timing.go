@@ -241,6 +241,9 @@ func (inst *Timer) sec2du(sec Seconds) time.Duration {
 }
 
 type RTC struct {
+
+	// 注意: 无论走带控制器是否处于运行状态(walking), 只要引擎是在运行中, 这里的几个字段表示的位置就会不断变动
+
 	Precision StepTickPos // now@work (精准的位置)
 	Normal    StepTickPos // now@work (normalized)
 	Raw       StepTickPos // raw@root

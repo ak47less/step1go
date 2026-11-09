@@ -1,5 +1,7 @@
 package lite
 
+import "fmt"
+
 ////////////////////////////////////////////////////////////////////////////////
 // StepTickPos
 
@@ -80,6 +82,11 @@ func (inst *innerSequencerTrigger) OnClock(ce *ClockEvent) error {
 	var err error
 	stc := inst.context.STC
 
+	inst.innerUpdateCurrentPosition()
+	if !inst.innerIsWalking() {
+		return nil
+	}
+
 	// do: prepare stc
 	stc, err = inst.innerDoPrepare(stc)
 	if err != nil {
@@ -91,18 +98,6 @@ func (inst *innerSequencerTrigger) OnClock(ce *ClockEvent) error {
 	if err != nil {
 		return err
 	}
-
-	// // do: compute real-time (fine)
-	// err = inst.innerDoComputeRealtimePos(stc, ce)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // do: compute current (align)
-	// err = inst.innerDoComputeCurrentPos(stc)
-	// if err != nil {
-	// 	return err
-	// }
 
 	// do: compute ahead (preload)
 	err = inst.innerDoComputeAheadPos(stc)
@@ -117,6 +112,36 @@ func (inst *innerSequencerTrigger) OnClock(ce *ClockEvent) error {
 	}
 
 	inst.context.STC = stc
+	return nil
+}
+
+func (inst *innerSequencerTrigger) innerIsWalking() bool {
+	ec := inst.context.EngineContext
+	return ec.TransportContext.Walking()
+}
+
+func (inst *innerSequencerTrigger) innerUpdateCurrentPosition() error {
+
+	ec := inst.context.EngineContext
+	tc := ec.TransportContext
+	current := ec.RTC.Precision
+
+	if tc.Walking() {
+		tc.current = current
+		return nil
+	}
+
+	pos := tc.stopAt
+
+	if pos != nil {
+		sc := ec.SequencerContext
+		current.Position = *pos
+		current.Location = sc.ComputeStepLocation(pos)
+		current.Index = sc.ComputeStepIndex(pos)
+		tc.current = current
+		return nil
+	}
+
 	return nil
 }
 
@@ -182,7 +207,52 @@ func (inst *innerSequencerTrigger) innerDoPrepare(stc *StepTickContext) (*StepTi
 
 func (inst *innerSequencerTrigger) innerDoCheckParams(stc *StepTickContext) error {
 
-	// todo: 检查stc中的各项参数是否符合运行时要求
+	const (
+		minStepLength    Seconds = 0.001
+		minPreloadLength Seconds = 1
+		minStepsPerCycle uint    = 4
+	)
+
+	if stc == nil {
+		return fmt.Errorf("stc is nil")
+	}
+
+	ctx := stc.context
+	if ctx == nil {
+		return fmt.Errorf("stc.context is nil")
+	}
+	if ctx.EngineContext == nil {
+		return fmt.Errorf("stc.context.EngineContext is nil")
+	}
+	if ctx.Sequencer == nil {
+		return fmt.Errorf("stc.context.Sequencer is nil")
+	}
+
+	tline := stc.wktline
+	if tline == nil {
+		return fmt.Errorf("stc.wktline is nil")
+	}
+
+	info := stc.Info
+	if info == nil {
+		return fmt.Errorf("stc.Info is nil")
+	}
+	if stc.RTC == nil {
+		return fmt.Errorf("stc.RTC is nil")
+	}
+	if info.StepsPerCycle < minStepsPerCycle {
+		return fmt.Errorf("bad stc.Info.StepsPerCycle value: %v", info.StepsPerCycle)
+	}
+	if info.PreloadSeconds < minPreloadLength {
+		return fmt.Errorf("bad stc.Info.PreloadSeconds value: %v", info.PreloadSeconds)
+	}
+	if info.SecondsPerStep < minStepLength {
+		return fmt.Errorf("bad stc.Info.SecondsPerStep value: %v", info.SecondsPerStep)
+	}
+
+	stc.Front.Position.Ref = tline
+	stc.This.Position.Ref = tline
+	stc.Back.Position.Ref = tline
 
 	return nil
 }

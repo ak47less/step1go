@@ -38,7 +38,7 @@ func (inst *TcpController) initKeyMap(b *common.ComputerKeyMapBuilder) {
 	b.MapKeyName("r").ToControl(common.ActionRecord)
 	b.MapKeyName("l").ToControl(common.ActionLoop)
 
-	b.MapKeyCode(common.CKeyCodeSpace).ToControl(common.ActionResume)
+	// b.MapKeyCode(common.CKeyCodeSpace).ToControl(common.ActionResume)
 	b.MapKeyCode(common.CKeyCodeSpace).ToControl(common.ActionPause)
 
 	// 12-tones
