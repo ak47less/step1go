@@ -106,7 +106,7 @@ func (inst *innerSequencerUpdater) innerDoComputeSpeed(sc *SequencerContext) err
 	profile := tl.Profile
 
 	bpm := profile.GetSpeed()
-	step_p_beat := sc.StepsPerBeat
+	step_p_beat := sc.Info.StepsPerBeat
 
 	if bpm < minBpm {
 		return fmt.Errorf("the bpm is too low (bpm=%v)", bpm)
@@ -118,8 +118,8 @@ func (inst *innerSequencerUpdater) innerDoComputeSpeed(sc *SequencerContext) err
 
 	sec_p_beat := the60s / Seconds(bpm)
 
-	sc.SecondsPerBeat = sec_p_beat
-	sc.SecondsPerStep = sec_p_beat / Seconds(step_p_beat)
+	sc.Info.SecondsPerBeat = sec_p_beat
+	sc.Info.SecondsPerStep = sec_p_beat / Seconds(step_p_beat)
 
 	return nil
 }
@@ -254,6 +254,7 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 	trigger := new(innerSequencerTrigger)
 	bankHolder := new(innerCurrentBankHolder)
 	stc := new(StepTickContext)
+	info := &sc.Info
 
 	seq.context = sc
 	trigger.context = sc
@@ -261,14 +262,21 @@ func (inst *innerSequencerFactory) CreateSequencer(ec *Context) (Sequencer, erro
 
 	ec.Clock.AddListener(trigger)
 
+	info.Profile = cfg.Profile
+	info.PreloadSeconds = 1
+	info.StepsPerBeat = 2
+	info.StepsPerCycle = cfg.StepListSize
+	info.SecondsPerBeat = 0
+	info.SecondsPerStep = 0
+
 	stc.context = sc
+	stc.Info = info
 
 	sc.STC = stc
 	sc.Sequencer = seq
 	sc.Engine = ec.Engine
 	sc.EngineContext = ec
 	sc.Updating = true
-	sc.StepsPerBeat = 2
 	sc.CurrentBankHolder = bankHolder
 
 	sc.Cube.Init(sc, cfg)

@@ -72,6 +72,95 @@ func (inst *SimpleClock) RemoveListener(l ClockListener) {
 	inst.listeners = listeners
 }
 
+func (inst *SimpleClock) innerGetNow(ce *ClockEvent) AbsolutePosition {
+
+	if ce == nil {
+		return 0
+	}
+
+	ctx := ce.Context
+	if ctx == nil {
+		return 0
+	}
+
+	ac := ctx.AudioContext
+	if ac == nil {
+		return 0
+	}
+
+	sec := ac.GetCurrentTime()
+	return AbsolutePosition(sec)
+}
+
+func (inst *SimpleClock) innerUpdateRTC(ce *ClockEvent) {
+
+	var raw, normal, fine StepTickPos
+	var root_pos, work_pos RelativePosition
+
+	ctx := ce.Context
+	rtc := &ctx.RTC
+	work := ctx.WorkTileline
+	root := ctx.RootTileline
+	sc := ctx.SequencerContext
+	info := &sc.Info
+	sec_per_step := info.SecondsPerStep
+	step_per_cyc := info.StepsPerCycle
+
+	now := inst.innerGetNow(ce) // abs-time
+
+	now.Relative(root, &root_pos)
+	now.Relative(work, &work_pos)
+
+	if sec_per_step < 0.001 {
+		sec_per_step = 0.001
+	}
+
+	if step_per_cyc < 4 {
+		step_per_cyc = 4
+	}
+
+	// steps
+
+	var step_count int
+	step_count = int(work_pos.Pos / sec_per_step)
+
+	if step_count < 0 {
+		step_count = 0
+	}
+
+	location := StepLocation(step_count)
+	index := StepIndex(step_count % int(step_per_cyc))
+
+	//raw
+
+	raw.Index = index
+	raw.Location = location
+	raw.Position = root_pos
+
+	//fine
+
+	fine.Index = index
+	fine.Location = location
+	fine.Position = work_pos
+
+	//normal
+
+	normal.Index = index
+	normal.Location = location
+	normal.Position = work_pos
+
+	normal.Position.Pos = sec_per_step * Seconds(step_count)
+
+	// save
+
+	ce.Time = now
+
+	rtc.Raw = raw
+	rtc.Precision = fine
+	rtc.Normal = normal
+
+}
+
 func (inst *SimpleClock) Dispatch(ce *ClockEvent) error {
 	if ce == nil {
 		return errors.New("lite: nil clock event")
@@ -81,6 +170,7 @@ func (inst *SimpleClock) Dispatch(ce *ClockEvent) error {
 	listeners := append([]ClockListener(nil), inst.listeners...)
 	inst.mu.RUnlock()
 
+	inst.innerUpdateRTC(ce)
 	ce.Clock = inst
 
 	var firstErr error

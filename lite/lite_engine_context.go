@@ -3,14 +3,11 @@ package lite
 ////////////////////////////////////////////////////////////////////////////////
 
 // Context : the engine-Context
-type Context struct {
-	Configuration *Configuration
+type EngineContext struct {
 
-	// life & com
+	// api
 
-	Logger Logger
-
-	Engine Engine
+	Transport Transport
 
 	LifeManager LifeManager
 
@@ -18,13 +15,23 @@ type Context struct {
 
 	PartRegistry PartRegistry
 
-	Transport Transport
+	Logger Logger
+
+	Engine Engine
+
+	Clock Clock
+
+	// sub-context
 
 	TransportContext *TransportContext
 
 	SequencerContext *SequencerContext
 
-	Clock Clock
+	// config
+
+	Configuration *Configuration
+
+	// life & com
 
 	AudioContext AudioContext
 
@@ -40,15 +47,12 @@ type Context struct {
 	RootTileline *Timeline
 	WorkTileline *Timeline
 
-	// CurrentAtWork *RelativePosition
-	// CurrentAtRoot *RelativePosition
-
 	RTC RTC
 
 	State EngineState
 }
 
-func (inst *Context) GetPosAtWork(src *RelativePosition) *RelativePosition {
+func (inst *EngineContext) GetPosAtWork(src *RelativePosition) *RelativePosition {
 
 	if src == nil {
 		src = new(RelativePosition)
@@ -74,4 +78,43 @@ func (inst *Context) GetPosAtWork(src *RelativePosition) *RelativePosition {
 	return abs.Relative(line2, dst)
 }
 
-type EngineContext = Context
+func (inst *EngineContext) GetCurrentPosition(dst *RelativePosition) *RelativePosition {
+
+	if dst == nil {
+		dst = new(RelativePosition)
+	}
+
+	if inst == nil {
+		return dst
+	}
+
+	at := inst.TransportContext.stopAt
+
+	if at == nil {
+		at = &inst.RTC.Precision.Position
+	}
+
+	*dst = *at
+	return dst
+}
+
+func (inst *EngineContext) RebaseToPosition(to *RelativePosition) {
+
+	if inst == nil || to == nil {
+		return
+	}
+
+	ctx := inst
+	work := ctx.WorkTileline
+	abs := to.Absolute()
+	to2 := abs.Relative(work, nil)
+
+	current_work_pos := to2.Pos
+	current_root_pos := ctx.RTC.Raw.Position.Absolute()
+
+	// work.offset + current_work_pos = current_root_pos
+
+	work.Offset = Seconds(current_root_pos) - current_work_pos
+}
+
+type Context = EngineContext

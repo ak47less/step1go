@@ -268,8 +268,16 @@ type innerTransport struct {
 
 // Pause implements [Transport].
 func (inst *innerTransport) Pause() error {
+
 	tc := inst.tc
-	tc.paused = true
+	ctx := inst.ctx
+
+	if tc.Walking() {
+		at := ctx.RTC.Precision.Position.Clone()
+		tc.stopAt = at
+		tc.paused = true
+	}
+
 	return inst.innerUpdateTransportContext(tc)
 }
 
@@ -283,10 +291,9 @@ func (inst *innerTransport) Paused() bool {
 func (inst *innerTransport) Play() error {
 
 	tc := inst.tc
-	current := inst.ctx.RTC.Normal.Position.Clone()
-
 	tc.playing = true
-	tc.rebaseToNewPosition = current
+
+	inst.innerTryRebaseToStopAt()
 
 	return inst.innerUpdateTransportContext(tc)
 }
@@ -304,6 +311,8 @@ func (inst *innerTransport) Record() error {
 	tc.recording = true
 	tc.playing = true
 
+	inst.innerTryRebaseToStopAt()
+
 	return inst.innerUpdateTransportContext(tc)
 }
 
@@ -317,10 +326,9 @@ func (inst *innerTransport) Recording() bool {
 func (inst *innerTransport) Resume() error {
 
 	tc := inst.tc
-	current := inst.ctx.RTC.Normal.Position.Clone()
-
 	tc.paused = false
-	tc.rebaseToNewPosition = current
+
+	inst.innerTryRebaseToStopAt()
 
 	return inst.innerUpdateTransportContext(tc)
 }
@@ -329,19 +337,30 @@ func (inst *innerTransport) Resume() error {
 func (inst *innerTransport) Stop() error {
 
 	tc := inst.tc
+	ctx := inst.ctx
+
 	tc.recording = false
 	tc.playing = false
 	tc.paused = false
 
+	at := new(RelativePosition)
+	at.Ref = ctx.WorkTileline
+	tc.stopAt = at
+
 	return inst.innerUpdateTransportContext(tc)
 }
 
-func (inst *innerTransport) innerUpdateTransportContext(tc *TransportContext) error {
-	if tc != nil {
-		play := tc.playing
-		pause := tc.paused
-		tc.running = (!pause) && play
+func (inst *innerTransport) innerTryRebaseToStopAt() {
+	at := inst.tc.stopAt
+	if at == nil {
+		return
 	}
+	inst.tc.stopAt = nil
+	inst.ctx.RebaseToPosition(at)
+}
+
+func (inst *innerTransport) innerUpdateTransportContext(tc *TransportContext) error {
+
 	return nil
 }
 
@@ -360,40 +379,13 @@ func (inst *innerTransport) innerCheckUpdate() error {
 
 // 重新确定基准位置
 func (inst *innerTransport) innerRebaseCurrentPos(ctx *Context, to *RelativePosition) error {
-
-	pos := to.Pos
-	line_wk := ctx.WorkTileline
-	current_pos_abs := ctx.RTC.Raw.Position.Absolute()
-	current_pos_wk := ctx.RTC.Precision.Position
-
-	current_pos_wk.Ref = line_wk
-	current_pos_wk.Pos = pos
-	line_wk.Offset = Seconds(current_pos_abs) - pos
-
+	ctx.RebaseToPosition(to)
 	return nil
 }
 
 func (inst *innerTransport) innerUpdateCurrentPos() error {
 
-	ctx := inst.ctx
-	ac := ctx.AudioContext
-	t0 := ac.GetCurrentTime()
-	tc := ctx.TransportContext
-	pos_at_root := &ctx.RTC.Raw.Position       // root
-	pos_at_work := &ctx.RTC.Precision.Position // work
-	rebase := tc.rebaseToNewPosition
-
-	pos_at_root.Pos = t0
-
-	if tc.running {
-		off := pos_at_work.Ref.GetTotalOffset()
-		pos_at_work.Pos = t0 - off
-	}
-
-	if rebase != nil {
-		tc.rebaseToNewPosition = nil
-		inst.innerRebaseCurrentPos(ctx, rebase)
-	}
+	// 这个方法的功能,目前由 Clock(RTC) 实现
 
 	return nil
 }

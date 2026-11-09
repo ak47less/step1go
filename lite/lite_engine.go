@@ -73,14 +73,21 @@ type Transport interface {
 	Playing() bool
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 type TransportContext struct {
 	paused    bool
 	playing   bool
 	recording bool
 
-	running bool // 综合各个状态, 确定是否正在走带
+	stopAt *RelativePosition // 如果这个字段不为nil, 表示当前位置停止在这个地方 @work.timeline
+}
 
-	rebaseToNewPosition *RelativePosition // 如果这个字段不为nil, 表示需要重定向到新的位置 @work.timeline
+func (inst *TransportContext) Walking() bool {
+	if inst == nil {
+		return false
+	}
+	return (inst.playing) && (!inst.paused)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
