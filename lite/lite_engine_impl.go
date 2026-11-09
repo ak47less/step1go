@@ -384,16 +384,28 @@ func (inst *innerTransport) Stop() error {
 }
 
 func (inst *innerTransport) innerTryRebaseToStopAt() {
+
 	at := inst.tc.stopAt
+	inst.tc.stopAt = nil
+
 	if at == nil {
 		return
 	}
-	inst.tc.stopAt = nil
+
 	inst.ctx.RebaseToPosition(at)
+
+	var tmp StepTickPos
+	sc := inst.ctx.SequencerContext
+
+	tmp.Position = *at
+	tmp.Index = sc.ComputeStepIndex(at)
+	tmp.Location = sc.ComputeStepLocation(at)
+
+	sc.STC.Back = tmp
+
 }
 
 func (inst *innerTransport) innerUpdateTransportContext(tc *TransportContext) error {
-
 	return nil
 }
 

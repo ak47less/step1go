@@ -21,6 +21,8 @@ type EngineContext struct {
 
 	Clock Clock
 
+	EventDispatcher EventDispatcher
+
 	// sub-context
 
 	TransportContext *TransportContext
@@ -40,6 +42,7 @@ type EngineContext struct {
 	CurrentInstrument       Instrument
 	CurrentInstrumentHolder InstrumentHolder
 	MainInstrumentFactory   InstrumentFactory
+	InstrumentManager       InstrumentManager
 
 	Timer        *Timer
 	TimerHandler func(*Timer) error

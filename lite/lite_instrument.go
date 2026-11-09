@@ -18,6 +18,11 @@ type InstrumentFactory interface {
 	CreateInstrument(ctx *Context, info *InstrumentInfo) (Instrument, error)
 }
 
+type InstrumentManager interface {
+	ListInfo() []*InstrumentInfo
+	GetFactory(info *InstrumentInfo) (InstrumentFactory, error)
+}
+
 type InstrumentHolder interface {
 	GetInstrument(ctx *Context) (Instrument, error)
 }
