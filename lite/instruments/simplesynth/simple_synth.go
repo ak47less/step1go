@@ -101,16 +101,21 @@ func (inst *SimpleSynth) Dispatch(msg *lite.MidiMessage) error {
 	inst.dispatchMu.Lock()
 	defer inst.dispatchMu.Unlock()
 
+	// A scheduled message describes one note, so its note-on must create the
+	// voice before note-off can attach the scheduled stop time to that voice.
+	if msg.NoteOn != nil {
+		if msg.NoteOn.Velocity == 0 {
+			if err := inst.noteOff(msg.NoteOn); err != nil {
+				return err
+			}
+		} else if err := inst.noteOn(msg.NoteOn); err != nil {
+			return err
+		}
+	}
 	if msg.NoteOff != nil {
 		if err := inst.noteOff(msg.NoteOff); err != nil {
 			return err
 		}
-	}
-	if msg.NoteOn != nil {
-		if msg.NoteOn.Velocity == 0 {
-			return inst.noteOff(msg.NoteOn)
-		}
-		return inst.noteOn(msg.NoteOn)
 	}
 	return nil
 }
