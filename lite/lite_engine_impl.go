@@ -37,6 +37,7 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	insfactory := cfg.InstrumentFactory
 	ih := new(DefaultInstrumentHolder)
 	profile := cfg.Profile
+	im := NewInstrumentManager()
 
 	if profile == nil {
 		profile = (new(SimpleProfile)).Init()
@@ -79,6 +80,8 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.Logger = Log()
 	ctx.MainInstrumentFactory = insfactory
 	ctx.CurrentInstrumentHolder = ih
+
+	parts.Registry.RegisterPart(im)
 
 	// Sequencer, rtc & stc
 

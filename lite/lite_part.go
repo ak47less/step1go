@@ -85,4 +85,46 @@ type PartRegistration struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+type PartInfoBuilder struct {
+	pi PartInfo
+}
+
+func (inst *PartInfoBuilder) Build() *PartInfo {
+	dst := new(PartInfo)
+	*dst = inst.pi
+	return dst
+}
+
+func (inst *PartInfoBuilder) SetPart(p Part) *PartInfoBuilder {
+	inst.pi.Part = p
+	return inst
+}
+
+func (inst *PartInfoBuilder) SetFactory(f PartFactory) *PartInfoBuilder {
+	inst.pi.Factory = f
+	return inst
+}
+
+func (inst *PartInfoBuilder) SetName(name PartName) *PartInfoBuilder {
+	inst.pi.Name = name
+	return inst
+}
+
+func (inst *PartInfoBuilder) SetID(id PartID) *PartInfoBuilder {
+	inst.pi.ID = id
+	return inst
+}
+
+func (inst *PartInfoBuilder) SetContext(pc *PartContext) *PartInfoBuilder {
+	inst.pi.Context = pc
+	return inst
+}
+
+func (inst *PartInfoBuilder) SetClasses(cl ...PartClass) *PartInfoBuilder {
+	inst.pi.Classes = cl
+	return inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // EOF
