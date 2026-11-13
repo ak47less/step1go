@@ -19,6 +19,9 @@ const (
 	// EventTypeMin 是内置事件类型范围的下界。
 	EventTypeMin EventType = iota
 
+	EventTypeLoopBegin
+	EventTypeLoopEnd
+
 	// EventTypeMax 是内置事件类型范围的上界。
 	EventTypeMax
 )

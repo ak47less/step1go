@@ -22,6 +22,7 @@ type EngineContext struct {
 	Clock Clock
 
 	EventDispatcher EventDispatcher
+	EventRunner     EventRunner
 
 	// sub-context
 
@@ -43,6 +44,8 @@ type EngineContext struct {
 	CurrentInstrumentHolder InstrumentHolder
 	MainInstrumentFactory   InstrumentFactory
 	InstrumentManager       InstrumentManager
+	InputInstrument         Instrument       // 这个乐器接口用于处理 MIDI 输入
+	InputInstrumentHolder   InstrumentHolder // 用来获取(自动加载) InputInstrument
 
 	Timer        *Timer
 	TimerHandler func(*Timer) error

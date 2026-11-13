@@ -38,6 +38,8 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ih := new(DefaultInstrumentHolder)
 	profile := cfg.Profile
 	im := NewInstrumentManager()
+	evtctx := NewEventContext()
+	iiholder := new(AutoInputInstrumentHolder)
 
 	if profile == nil {
 		profile = (new(SimpleProfile)).Init()
@@ -80,6 +82,11 @@ func (inst *innerEngineFactory) CreateEngine(cfg *Configuration) (Engine, error)
 	ctx.Logger = Log()
 	ctx.MainInstrumentFactory = insfactory
 	ctx.CurrentInstrumentHolder = ih
+	ctx.InstrumentManager = im
+	ctx.InputInstrument = nil
+	ctx.InputInstrumentHolder = iiholder
+	ctx.EventDispatcher = evtctx.dispatcher
+	ctx.EventRunner = evtctx.runner
 
 	parts.Registry.RegisterPart(im)
 

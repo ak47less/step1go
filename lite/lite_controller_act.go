@@ -127,7 +127,7 @@ func (inst *innerActionHandlerSet) resume(ec *EngineContext, ah *ActionEvent) er
 
 func (inst *innerActionHandlerSet) noteOn(ec *EngineContext, ah *ActionEvent) error {
 
-	holder := ec.CurrentInstrumentHolder
+	holder := ec.InputInstrumentHolder
 	in, err := holder.GetInstrument(ec)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (inst *innerActionHandlerSet) noteOn(ec *EngineContext, ah *ActionEvent) er
 
 func (inst *innerActionHandlerSet) noteOff(ec *EngineContext, ah *ActionEvent) error {
 
-	holder := ec.CurrentInstrumentHolder
+	holder := ec.InputInstrumentHolder
 	in, err := holder.GetInstrument(ec)
 	if err != nil {
 		return err
