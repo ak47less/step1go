@@ -7,11 +7,20 @@
  * implementation for tests and a Web Audio adapter for browsers.
  *
  * No runtime dependency is required.
+ *
+ * 阅读顺序：
+ *   1. Common / Web Audio：值类型、音频后端抽象。
+ *   2. Timeline / Event：时间换算与事件分发。
+ *   3. LifeCycle / Part：引擎生命周期和可注册组件。
+ *   4. Instrument / Cube：乐器与 {bank, step, track} 音序数据。
+ *   5. Sequencer / Engine：实时时钟、走带和引擎装配。
  */
 
 ////////////////////////////////////////////////////////////////////////////////
 // Common scalar and music types
 
+// Go 中的命名标量在 TypeScript 中统一映射为 number。保留别名后，
+// API 签名仍能表达单位，同时允许直接传入普通数值。
 export type Seconds = number;
 export type BPM = number;
 export type Frequency = number;
@@ -60,10 +69,13 @@ export const ScaleModeBlues = "blues";
 export const ScaleModeMajorBlues = "major_blues";
 
 export interface Tempo {
+  /** 每小节拍数，例如 4/4 拍时为 4。 */
   Upper: number;
+  /** 以何种音符为一拍，例如四分音符为 4。 */
   Lower: number;
 }
 
+/** MIDI 音高的解析结果；69 对应 A4/440Hz。 */
 export interface PitchInfo {
   Number: MidiNoteNumber;
   Name: string;
@@ -93,6 +105,7 @@ export function GetPitchInfo(
   number: MidiNoteNumber,
   destination?: PitchInfo,
 ): PitchInfo {
+  // 与原实现一致：输入先夹到合法 MIDI 范围，再按十二平均律计算频率。
   const dst = destination ?? ({} as PitchInfo);
   const midiNumber = Math.max(0, Math.min(127, Math.trunc(number)));
   const group = Math.floor(midiNumber / 12) - 1;
@@ -110,6 +123,7 @@ export function NewTempo(upper: number, lower: number): Tempo {
 }
 
 export interface MusicProfile {
+  // 音序器每轮更新时从 profile 读取速度、拍号和调式。
   GetScale(): ScaleMode;
   GetSpeed(): BPM;
   GetTempo(): Tempo;
@@ -167,6 +181,7 @@ export class SimpleProfile implements MusicProfile {
   }
 
   InitWith(base?: MusicProfile | null): this {
+    // 传入 base 时复制其配置；否则恢复默认的 100 BPM、C 大调、4/4 拍。
     if (base) {
       this.bpm = base.GetSpeed();
       this.scale = base.GetScale();
@@ -218,6 +233,8 @@ export const ActionKeyDown = Action.KeyDown;
 export const ActionMax = Action.Max;
 
 export interface ActionEvent {
+  // ActionEvent 同时服务走带控制、电脑键盘和 MIDI 输入；具体使用哪些
+  // 字段由 Action 和 Flag* 字段决定。
   Action: Action;
   FlagControl?: boolean;
   FlagNote?: boolean;
@@ -235,6 +252,7 @@ export interface ActionEvent {
 // Logging
 
 export interface Logger {
+  // 格式化字符串沿用 Go Logger 的 %s/%d/%v/%f 占位符。
   Info(format: string, ...args: unknown[]): void;
   Error(format: string, ...args: unknown[]): void;
   Trace?(format: string, ...args: unknown[]): void;
@@ -288,6 +306,7 @@ export function Log(): Logger {
 }
 
 export function handleError(error: unknown): void {
+  // Timer、时钟监听器等异步入口不能向调用方抛错，因此统一交给默认 Logger。
   if (error === null || error === undefined) {
     return;
   }
@@ -299,11 +318,14 @@ export function handleError(error: unknown): void {
 // Web Audio compatible interfaces
 
 export interface AudioNode {
+  // 这些接口刻意保持 Web Audio 的概念，但不继承 DOM 类型，
+  // 因而同一份代码也能在 Node 和测试环境运行。
   Connect(destination: AudioNode): void;
   Disconnect(): void;
 }
 
 export interface AudioParam {
+  // 参数值可以立即设置，也可以按音频上下文时间轴安排自动化事件。
   GetValue(): number;
   SetValue(value: number): void;
   SetValueAtTime(value: number, startTime: Seconds): void;
@@ -318,6 +340,7 @@ export interface AudioParam {
 }
 
 export interface AudioScheduledSourceNode extends AudioNode {
+  // Start/Stop 的时间均相对于当前 AudioContext 的时间零点。
   Start(when: Seconds): void;
   Stop(when: Seconds): void;
   SetOnEnded(handler: (() => void) | null): void;
@@ -377,6 +400,7 @@ export const AudioContextStateRunning = AudioContextState.Running;
 export const AudioContextStateClosed = AudioContextState.Closed;
 
 export interface AudioContext {
+  // 对 Web Audio AudioContext 的最小抽象。Malgo 等原生后端只需实现此接口。
   Close(): void;
   Resume(): void | Promise<void>;
   Suspend(): void | Promise<void>;
@@ -403,6 +427,7 @@ export interface Driver {
 }
 
 function normalizeAudioTime(value: Seconds): Seconds {
+  // Web Audio 不接受负数或 NaN 的调度时间。
   return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
@@ -424,6 +449,8 @@ interface AudioParamEvent {
 }
 
 export class DefaultAudioParam implements AudioParam {
+  // 事件按时间排序。ramp 事件在到达其时间点前会从当前值插值，
+  // SetTargetAtTime 则从起始时刻开始指数逼近目标值。
   private baseValue: number;
   private baseTime: Seconds;
   private events: AudioParamEvent[] = [];
@@ -489,6 +516,7 @@ export class DefaultAudioParam implements AudioParam {
   }
 
   CancelScheduledValues(startTime: Seconds): void {
+    // 先把当前值固化到 now，避免删除事件后参数值瞬间跳回旧基准。
     const time = normalizeAudioTime(startTime);
     const now = this.now();
     this.baseValue = this.valueAt(now);
@@ -510,6 +538,8 @@ export class DefaultAudioParam implements AudioParam {
   }
 
   private valueAt(time: Seconds): number {
+    // 顺序扫描已排序事件：游标表示上一事件结束后的状态，
+    // 当前区间按事件类型求值。
     let value = this.baseValue;
     let cursor = this.baseTime;
     let mode = AudioParamEventKind.Set;
@@ -612,6 +642,7 @@ const MOCK_DEFAULT_GAIN = 1;
 const MOCK_DEFAULT_PLAYBACK_RATE = 1;
 
 export class MockAudioNode implements AudioNode {
+  // 记录连接关系便于测试断言；Mock 后端不实际渲染 PCM。
   readonly Connections: AudioNode[] = [];
 
   Connect(destination: AudioNode): void {
@@ -629,6 +660,8 @@ export class MockAudioScheduledSourceNode
   extends MockAudioNode
   implements AudioScheduledSourceNode
 {
+  // Starts/Stops 保留所有调用记录，包括被忽略的重复调度，
+  // 便于验证音序器生成的 MIDI 时间。
   readonly Starts: Seconds[] = [];
   readonly Stops: Seconds[] = [];
 
@@ -647,6 +680,7 @@ export class MockAudioScheduledSourceNode
   Start(when: Seconds): void {
     const time = normalizeAudioTime(when);
     this.Starts.push(time);
+    // 与 Web Audio 一致：同一个 source 只能真正启动一次。
     if (this.startScheduled || this.ended) {
       return;
     }
@@ -658,6 +692,7 @@ export class MockAudioScheduledSourceNode
   Stop(when: Seconds): void {
     const time = normalizeAudioTime(when);
     this.Stops.push(time);
+    // Stop 可以晚于 Start 调用；真正结束后再次 Stop 没有效果。
     if (this.ended) {
       return;
     }
@@ -678,6 +713,8 @@ export class MockAudioScheduledSourceNode
   }
 
   internalTick(now: Seconds): void {
+    // Mock 上下文在 GetCurrentTime 和短定时器中被驱动，
+    // 到达结束时间时补发 onended。
     if (this.ended || !this.startScheduled) {
       return;
     }
@@ -879,6 +916,7 @@ export class MockAudioContext implements AudioContext {
     ) {
       return;
     }
+    // 暂停期间累计 elapsed；恢复后 currentTime 从该点继续增长。
     this.state = AudioContextState.Running;
     this.runningSince = Date.now();
     this.runSources();
@@ -906,6 +944,7 @@ export class MockAudioContext implements AudioContext {
     length: SampleCount,
     sampleRate: SampleRate,
   ): AudioBuffer {
+    // 与原 malgo/Mock 实现一致：负声道数按 0 处理，0 采样率回退到上下文采样率。
     const channelsCount = Math.max(0, Math.trunc(numberOfChannels));
     const sampleCount =
       Number.isFinite(length) && length >= 0 ? Math.trunc(length) : 0;
@@ -975,6 +1014,7 @@ export class MockAudioContext implements AudioContext {
   }
 
   private scheduleSourceCheck(): void {
+    // 用低频轮询推动 source 完成状态；Node 下 unref，避免测试进程被定时器挂住。
     if (this.sourceCheck !== null || this.sources.size === 0) {
       return;
     }
@@ -1003,6 +1043,8 @@ export function NewMockDriver(sampleRate = MOCK_DEFAULT_SAMPLE_RATE): Driver {
 ////////////////////////////////////////////////////////////////////////////////
 // Browser Web Audio adapter
 
+// 原生对象使用 any 隔离 DOM 类型差异，公开 API 仍只暴露本文件的
+// AudioContext 接口。这样既支持浏览器，也不要求消费者启用 DOM lib。
 type NativeAudioContext = {
   currentTime: number;
   sampleRate: number;
@@ -1061,6 +1103,7 @@ class NativeAudioNodeAdapter implements AudioNode {
   constructor(protected readonly node: any) {}
 
   Connect(destination: AudioNode): void {
+    // 只有适配器包装的节点才能可靠转换为原生 AudioNode。
     if (destination instanceof NativeAudioNodeAdapter) {
       this.node.connect(destination.nativeNode());
       return;
@@ -1165,6 +1208,7 @@ class NativeBufferSourceAdapter
   }
 
   SetBuffer(buffer: AudioBuffer | null): void {
+    // 原生 buffer 直接复用；来自 Mock 等后端的 buffer 则复制为原生 AudioBuffer。
     if (buffer instanceof NativeAudioBufferAdapter) {
       this.node.buffer = (buffer as any).buffer;
     } else if (buffer === null) {
@@ -1195,6 +1239,7 @@ class NativeBufferSourceAdapter
 }
 
 export class WebAudioContext implements AudioContext {
+  // 把本文件的 Web Audio 抽象转发到浏览器原生 AudioContext。
   private readonly destination: NativeDestinationAdapter;
 
   constructor(private readonly context: NativeAudioContext) {
@@ -1255,6 +1300,7 @@ export class WebAudioContext implements AudioContext {
 
 export class WebAudioContextFactory implements AudioContextFactory {
   NewAudioContext(): AudioContext {
+    // Safari 的旧实例名是 webkitAudioContext。
     const scope = globalThis as any;
     const Constructor = scope.AudioContext ?? scope.webkitAudioContext;
     if (!Constructor) {
@@ -1267,6 +1313,7 @@ export class WebAudioContextFactory implements AudioContextFactory {
 }
 
 export class WebAudioDriver implements Driver {
+  // 浏览器推荐使用该 Driver；无 Web Audio 的环境可改用 MockDriver。
   GetAudioContextFactory(): AudioContextFactory {
     return new WebAudioContextFactory();
   }
@@ -1284,6 +1331,8 @@ export enum TimelineType {
 }
 
 export class Timeline {
+  // 每个 Timeline 的 Offset 相对于 Parent；绝对位置是所有祖先 Offset 之和
+  // 加上当前 Pos。GetRoot 限制 32 层是为了防止错误父子环造成无限循环。
   Parent: Timeline | null = null;
   Label = "";
   Offset: Seconds = 0;
@@ -1384,6 +1433,8 @@ export function AbsolutePositionRelative(
   base?: Timeline | null,
   destination?: RelativePosition,
 ): RelativePosition {
+  // 公式：relative = absolute - base.GetTotalOffset()。
+  // 每次返回新 RelativePosition；调用方主动传入 destination 可复用对象。
   const dst = destination ?? new RelativePosition();
   dst.Ref = base ?? new Timeline();
   dst.Pos = absolute - dst.Ref.GetTotalOffset();
@@ -1391,6 +1442,8 @@ export function AbsolutePositionRelative(
 }
 
 export class Timer {
+  // Timer 使用 setTimeout 而非阻塞循环。Start/Stop 通过 workerID
+  // 让已排队的旧回调自动失效。
   Delay: Seconds = 0;
   Interval: Seconds = 0;
   Handler: ((timer: Timer) => void) | null = null;
@@ -1460,6 +1513,7 @@ export const EventTypeMax = EventType.Max;
 export type EventID = number;
 
 export interface Event {
+  // Type + ID 共同确定匹配的回调；Sender 是任意业务载荷。
   Type: EventType | number;
   ID: EventID;
   Sender?: unknown;
@@ -1486,6 +1540,8 @@ export interface EventRunner {
 }
 
 export class EventContext {
+  // 事件先进入 buffer，再由 Runner 按 FIFO 取出。回调中 Dispatch 的新事件
+  // 会追加到队尾，因此 Run 仍能在同一次调用中处理它。
   private dispatcherInstance: EventDispatcher | null = null;
   private runnerInstance: EventRunner | null = null;
   private callbacks: EventCallback[] = [];
@@ -1522,6 +1578,7 @@ export class EventContext {
   }
 
   internalTake(): Event | undefined {
+    // 先取出再执行回调；如果回调抛错，当前事件已被消费，后续事件仍保留。
     return this.buffer.shift();
   }
 
@@ -1601,6 +1658,7 @@ export class DefaultEventRunner implements EventRunner {
         try {
           callback.Fn(event);
         } catch (cause) {
+          // 保留事件类型和 ID，便于定位具体分发失败点；原始错误放在 cause。
           const detail = cause instanceof Error ? cause.message : String(cause);
           throw new Error(
             `dispatch event type ${event.Type} id ${event.ID}: ${detail}`,
@@ -1784,6 +1842,8 @@ export function NewLifeManager(): LifeManager {
 }
 
 export class LifeCycleRunner {
+  // 主生命周期驱动引擎：OnRun 通常会等待 Engine.Join()，
+  // 所以后续 Pause/Stop/Destroy 必须等它结束后才能执行。
   private context: EngineContext | null = null;
 
   Init(context: EngineContext): this {
@@ -1818,6 +1878,7 @@ export class LifeCycleRunner {
 }
 
 export class LifeCycleStageLogger implements Life, Part {
+  // 可作为配置中的 Part 加入，用于观察每个生命周期阶段的调用顺序。
   private logger: Logger = Log();
 
   GetInfo(): PartInfo {
@@ -1857,6 +1918,8 @@ export type PartName = string;
 export type PartClass = string;
 
 export interface Part {
+  // Part 是可注册组件；若同时实现 Life/InstrumentProvider，
+  // 引擎会自动把它纳入生命周期或乐器注册表。
   GetInfo(): PartInfo | null;
 }
 
@@ -2000,6 +2063,7 @@ export class DefaultPartRegistry implements PartRegistry {
     if (!registration) {
       throw new Error("part registration is nil");
     }
+    // ID/Name 未提供时自动生成；但至少要有 Part 实例或 PartFactory。
     if (registration.ID === 0) {
       registration.ID = this.makeNextID();
     }
@@ -2058,6 +2122,8 @@ export class DefaultPartRegistry implements PartRegistry {
 }
 
 export class DefaultPartManager implements PartManager {
+  // Manager 按需调用 Factory.CreatePart，并缓存创建结果，
+  // 因此相同 ID/Name 的后续查询会返回同一个实例。
   constructor(private readonly state: PartRegistryState) {}
 
   ListNames(): PartName[] {
@@ -2129,6 +2195,7 @@ export function NewPartContext(context: EngineContext | null = null): PartContex
 // MIDI and instruments
 
 export enum MidiEventType {
+  // 首尾哨兵沿用 Go iota 结构，业务事件从 NoteOn 开始。
   Min = 0,
   NoteOn,
   NoteOff,
@@ -2136,6 +2203,7 @@ export enum MidiEventType {
 }
 
 export class MidiNote {
+  // Position 是绝对音频时间。小于 1ms 的值由乐器解释为“立即播放”。
   EventType: MidiEventType = MidiEventType.NoteOn;
   Position: AbsolutePosition = 0;
   Channel = 0;
@@ -2148,6 +2216,8 @@ export class MidiNote {
 }
 
 export class MidiMessage {
+  // 一个调度消息通常同时携带 NoteOn 和 NoteOff，
+  // SimpleSynth 会据此预先安排同一个 voice 的起止时间。
   NoteOn: MidiNote | null = null;
   NoteOff: MidiNote | null = null;
 
@@ -2206,6 +2276,7 @@ export class InstrumentRegistration extends InstrumentInfo {
 }
 
 export class InstrumentFactoryRegistry implements InstrumentFactory, Part, Life {
+  // 按乐器 Name 选择工厂；未注册名称回退到 SetDefault 设置的工厂。
   private readonly table = new Map<string, InstrumentRegistration>();
   private factoryDefault: InstrumentFactory | null = null;
 
@@ -2228,6 +2299,7 @@ export class InstrumentFactoryRegistry implements InstrumentFactory, Part, Life 
     if (!info) {
       throw new Error("instrument info is nil");
     }
+    // 默认工厂只处理未注册名称，不会覆盖已注册名称对应的专用工厂。
     const registration = this.table.get(info.Name);
     const factory = registration?.Factory ?? this.factoryDefault;
     if (!factory) {
@@ -2298,6 +2370,7 @@ export class DefaultInstrumentHolder implements InstrumentHolder {
     if (!factory) {
       throw new Error("context.MainInstrumentFactory is nil");
     }
+    // 默认乐器使用三角波预设，创建后缓存在 EngineContext 中。
     const instrument = factory.CreateInstrument(
       context,
       new InstrumentInfo({ Name: "", Preset: "triangle" }),
@@ -2311,6 +2384,8 @@ export class DefaultInstrumentHolder implements InstrumentHolder {
 }
 
 export class InstrumentRegistry {
+  // 收集实现了 InstrumentProvider 的 Part，并建立 Name -> Factory 索引。
+  // 该注册表在 InstrumentManager 的 OnInit 阶段填充。
   readonly table = new Map<string, InstrumentRegistration>();
 
   RegisterAllInstruments(context: EngineContext): void {
@@ -2397,6 +2472,8 @@ export function NewInstrumentManager(): InstrumentManager {
 }
 
 export class InnerInputInstrument implements Instrument {
+  // 输入乐器是一个间接层：外部 MIDI 总是转发到当前主乐器，
+  // 因此切换主乐器时不需要重新连接输入设备。
   constructor(private readonly context: EngineContext) {}
 
   Dispatch(message: MidiMessage): void {
@@ -2490,6 +2567,8 @@ export class SimpleSynthFactory implements InstrumentFactory {
 }
 
 export class SimpleSynth implements Instrument {
+  // 每个 MIDI key 同时只保留一个 voice。重复 NoteOn 会先停止旧 voice，
+  // 避免同一个音符叠加造成非预期增益。
   private readonly waveform: string;
   private readonly voices = new Map<MidiNoteNumber, SimpleSynthVoice>();
 
@@ -2505,6 +2584,7 @@ export class SimpleSynth implements Instrument {
     if (!message) {
       return;
     }
+    // 先处理 NoteOn，确保同一消息携带的 NoteOff 能停止刚创建的 voice。
     if (message.NoteOn) {
       if (message.NoteOn.Velocity === 0) {
         this.noteOff(message.NoteOn);
@@ -2585,6 +2665,7 @@ export class SimpleSynth implements Instrument {
   }
 
   private noteTime(note: MidiNote): Seconds {
+    // 绝对位置接近 0 时按即时消息处理；否则直接作为 Web Audio 调度时间。
     return note.Position < 0.001 ? this.audio.GetCurrentTime() : note.Position;
   }
 
@@ -2643,6 +2724,8 @@ export type TrackIndex = number;
 export type TrackName = string;
 
 export interface StepTickHandler {
+  // Every bank/step/cell exposes the same callback, so the sequencer can walk
+  // one logical step without owning the concrete storage layout.
   OnStep(context: StepTickContext): void;
 }
 
@@ -2679,6 +2762,8 @@ export class CellCache {
 }
 
 export class SimpleCell extends Cell implements StepTickHandler {
+  // 普通音符格。ComplexCell.First 指向其首个 SimpleCell，
+  // 从而让一个多格音符只在第一个格子上触发一次。
   Context: Cube | null = null;
   OwnerStep: Step | null = null;
   OwnerBank: Bank | null = null;
@@ -2703,6 +2788,8 @@ export class SimpleCell extends Cell implements StepTickHandler {
   }
 
   DispatchNote(context: StepTickContext, note: Note): void {
+    // 当前格子的位置来自 stc.This；音符长度固定为一个 step。
+    // 生成的 NoteOff 使用绝对时间，SimpleSynth 可以直接预调度。
     const track = this.OwnerTrack;
     if (!track) {
       throw new Error("SimpleCell.track_ref is nil");
@@ -2734,6 +2821,8 @@ export class SimpleCell extends Cell implements StepTickHandler {
 }
 
 export class ComplexCell extends Cell implements StepTickHandler {
+  // ComplexCell 占用多个 SimpleCell 槽位。这里把 Notes 同时交给首发格，
+  // 保持“多音”语义；更复杂时值拆分可由上层 Note 数据表达。
   First: SimpleCell | null = null;
   SimpleCells: SimpleCell[] = [];
   Notes: Note[] = [];
@@ -2754,6 +2843,8 @@ export class ComplexCell extends Cell implements StepTickHandler {
 }
 
 export class CellManager {
+  // 立方体中的每个 {bank, step, track} 组合只创建一个 SimpleCell；
+  // 不同 Bank/Step/Track 通过 owner 引用共享这个对象。
   private readonly table = new Map<string, SimpleCell>();
 
   OpenCell(want: Cell | null, autoMake = false): SimpleCell {
@@ -2962,6 +3053,11 @@ export class CubeBuffers {
 }
 
 export class Cube {
+  // 三个层级：
+  //   Buffers：最大容量的对象池；
+  //   Banks/Steps/Tracks：当前有效切片；
+  //   Bank.Steps/Bank.Tracks：每个 bank 自己的视图。
+  // 所有 bank 的 track metadata 与 Cube.Tracks 共享同一个 TrackMeta。
   Context: SequencerContext | null = null;
   readonly CellManager = new CellManager();
   readonly Buffers = new CubeBuffers();
@@ -3027,6 +3123,8 @@ export class Cube {
   }
 
   private initBank(bank: Bank): void {
+    // 为 bank 的每个 cell 绑定所属 bank/step/track。Step 和 Track 两侧
+    // 都保留同一 cell 的引用，所以调度可以从任一维度遍历。
     const stepCapacity = this.Buffers.StepBuffer.Capacity();
     const trackCapacity = this.Buffers.TrackBuffer.Capacity();
     const stepLength = this.Steps.Length();
@@ -3083,6 +3181,7 @@ export class Bank implements StepTickHandler {
     if (!this.Context) {
       this.Init(context.Context?.Cube ?? null);
     }
+    // This.Index 是按 StepsPerCycle 取模后的物理索引。
     const step = this.Steps.Get(context.This.Index);
     step?.OnStep(context);
   }
@@ -3113,6 +3212,8 @@ export class Bank implements StepTickHandler {
 // Sequencer timing
 
 export class SequencerInfo {
+  // BPM 和 Tempo 共同决定 SecondsPerBeat/SecondsPerStep；
+  // PreloadSeconds 表示调度器希望提前触发多少秒的音符。
   Profile: MusicProfile | null = null;
   SecondsPerStep: Seconds = 0;
   SecondsPerBeat: Seconds = 0;
@@ -3121,6 +3222,7 @@ export class SequencerInfo {
   PreloadSeconds: Seconds = 1;
 
   Normalize(rewrite = false): SequencerInfo {
+    // 防止采样过疏或除零；rewrite=false 时返回独立副本。
     const dst = rewrite ? this : new SequencerInfo();
     const profile = this.Profile ?? new SimpleProfile().Init();
     const preload = Math.max(1, this.PreloadSeconds);
@@ -3157,6 +3259,8 @@ export class StepTickPos {
 }
 
 export class StepTickContext {
+  // Front = 预加载前沿，Back = 已经处理到的位置，This = 当前派发位置。
+  // RTC 指向引擎共享的实时位置对象。
   Context: SequencerContext | null = null;
   WorkTimeline: Timeline | null = null;
   BreakCount = 0;
@@ -3181,6 +3285,8 @@ export interface SequencerFactory {
 }
 
 export class SequencerContext {
+  // 音序器运行时状态。CurrentBankHolder 负责在 CurrentBank 为空时
+  // 自动选择并缓存当前 bank。
   Engine: Engine | null = null;
   EngineContext: EngineContext | null = null;
   Sequencer: Sequencer | null = null;
@@ -3205,6 +3311,7 @@ export class SequencerContext {
   }
 
   ComputeStepLocation(position: RelativePosition | null): StepLocation {
+    // 先把任意时间线的位置转成绝对时间，再换算到 WorkTimeline 的 step 序号。
     if (!position) {
       return 0;
     }
@@ -3271,6 +3378,8 @@ export class RTC {
 }
 
 export class SimpleClock implements Clock {
+  // Clock 只负责读取 AudioContext 时间、刷新 RTC，然后通知监听器。
+  // 音序器和监控组件因此看到同一个“当前时间”快照。
   private listeners: ClockListener[] = [];
 
   AddListener(listener: ClockListener | null): void {
@@ -3329,6 +3438,8 @@ export class SimpleClock implements Clock {
     const workPosition = AbsolutePositionRelative(now, timelineWork);
     const secondsPerStep = Math.max(0.001, info.SecondsPerStep);
     const stepsPerCycle = Math.max(4, info.StepsPerCycle);
+    // Precision 保留连续时间；Normal 对齐到当前 step 起点；
+    // Raw 表示 RootTimeline 坐标下的原始时间。
     const stepCount = Math.max(0, Math.trunc(workPosition.Pos / secondsPerStep));
     const location = stepCount;
     const index = stepCount % stepsPerCycle;
@@ -3379,6 +3490,7 @@ class CurrentBankHolder implements BankHolder {
 }
 
 class SequencerUpdater {
+  // profile、速度或 bank 配置变化后，由 Updating 标记触发一次重算。
   constructor(private readonly context: SequencerContext) {}
 
   Update(): void {
@@ -3389,6 +3501,7 @@ class SequencerUpdater {
   }
 
   private computeSpeed(): void {
+    // 一拍时长 = 60 / BPM；每步时长再除以 StepsPerBeat。
     const context = this.context;
     const timeline = context.EngineContext?.WorkTileline;
     const profile = timeline?.Profile ?? context.Info.Profile;
@@ -3465,6 +3578,8 @@ export class InnerSequencer implements Sequencer {
 }
 
 export class SequencerTrigger implements ClockListener {
+  // 每次时钟 tick 都从已处理的 Back 推进到预加载前沿 Front。
+  // 仅当 Transport.Walking() 为 true 时实际派发 step。
   constructor(private readonly context: SequencerContext) {}
 
   OnClock(_event: ClockEvent): void {
@@ -3565,6 +3680,8 @@ export class SequencerTrigger implements ClockListener {
   }
 
   private fastForward(stc: StepTickContext): void {
+    // 一个时钟间隔可能跨过多个 step，因此需要补齐中间的 step。
+    // gap 超过半圈时视为大幅跳转，标记 Broken 防止卡顿恢复后瞬间补播。
     const current = cloneTickPos(stc.Back);
     const target = stc.Front;
     const maxGap = Math.max(1, Math.trunc(stc.Info.StepsPerCycle / 2));
@@ -3609,6 +3726,8 @@ function cloneTickPos(source: StepTickPos): StepTickPos {
 
 export class InnerSequencerFactory implements SequencerFactory {
   CreateSequencer(engineContext: EngineContext): Sequencer {
+    // 默认每拍 2 step、循环长度为 StepListSize、提前 1 秒调度。
+    // 具体 step 时长在第一次 Update 时根据 profile 计算。
     const sequencerContext = new SequencerContext();
     const sequencer = new InnerSequencer(sequencerContext);
     const trigger = new SequencerTrigger(sequencerContext);
@@ -3643,6 +3762,7 @@ export class InnerSequencerFactory implements SequencerFactory {
 // Engine configuration and transport
 
 export class MonitorConfig {
+  // URL 可直接填写 tcp://host:port；Prepare 会拆出 Scheme/Host/Port。
   URL = "";
   Scheme = "";
   Host = "";
@@ -3681,6 +3801,8 @@ export class MonitorConfig {
 export type PartSource = Part | PartFactory | PartRegistration;
 
 export class Configuration {
+  // Driver 提供底层音频上下文，InstrumentFactory 提供默认乐器。
+  // Parts 可以混合 Part、PartFactory 和 PartRegistration。
   Driver: Driver | null = null;
   InstrumentFactory: InstrumentFactory | null = null;
   SampleRate = 0;
@@ -3696,6 +3818,8 @@ export class Configuration {
 }
 
 export function DefaultConfig(): Configuration {
+  // 默认使用 MockDriver，可在无音频设备环境创建和测试引擎。
+  // 与原 Go API 一致，调用方仍需配置 InstrumentFactory。
   const config = new Configuration();
   config.Driver = NewMockDriver();
   config.SampleRate = 44100;
@@ -3738,6 +3862,7 @@ export interface Transport {
 }
 
 export class TransportContext {
+  // StopAt 表示暂停/停止后的目标位置；Resume/Play 会据此重定位工作时间线。
   private paused = false;
   private playing = false;
   private recording = false;
@@ -3774,6 +3899,7 @@ export class TransportContext {
 }
 
 export class EngineContext {
+  // 所有子系统共享的依赖容器；Context 是对应的 Go 风格类型别名。
   Transport!: Transport;
   LifeManager!: LifeManager;
   PartManager!: PartManager;
@@ -3802,6 +3928,7 @@ export class EngineContext {
   State = new EngineState();
 
   GetPosAtWork(source: RelativePosition | null): RelativePosition {
+    // 已经是 WorkTimeline 相对位置时直接返回，避免二次扣减 offset。
     const position = source ?? new RelativePosition();
     if (!position.Ref || !this.WorkTileline) {
       return position;
@@ -3825,6 +3952,8 @@ export class EngineContext {
   }
 
   RebaseToPosition(to: RelativePosition | null): void {
+    // 保持绝对位置不变，只调整 WorkTimeline.Offset：
+    // work.offset + workPos = currentRootPos。
     if (!to) {
       return;
     }
@@ -3878,6 +4007,8 @@ function isLife(value: unknown): value is Life {
 
 export class InnerEngineFactory implements EngineFactory {
   CreateEngine(config: Configuration): Engine {
+    // 装配顺序不可随意调整：先建立基础子系统，再创建 Cube，
+    // 之后注册 Part、收集生命周期，最后创建乐器并绑定到轨道。
     if (!config) {
       throw new Error("configuration is nil");
     }
@@ -3959,6 +4090,7 @@ export class InnerEngineFactory implements EngineFactory {
   }
 
   private initParts(context: EngineContext): void {
+    // 通过运行时能力判断 Part 角色，同一对象可以同时实现多种角色。
     for (const source of context.Configuration.Parts) {
       if (source instanceof PartRegistration) {
         context.PartRegistry.Register(source);
@@ -3998,6 +4130,7 @@ export function DefaultEngineFactory(): EngineFactory {
 }
 
 export class InnerEngine implements Engine {
+  // Join 不阻塞 JS 线程，而是返回 Promise，由生命周期运行器等待。
   Context!: EngineContext;
 
   GetContext(): EngineContext {
@@ -4022,6 +4155,7 @@ export class InnerEngine implements Engine {
   }
 
   Create(): void {
+    // 主 Timer 约每 10ms 产生一次时钟事件，实际精度取决于宿主调度器。
     const context = this.Context;
     const timer = context.Timer ?? new Timer();
     context.Timer = timer;
@@ -4057,6 +4191,7 @@ export class InnerEngine implements Engine {
 }
 
 export class InnerTransport implements Transport {
+  // Transport 只维护播放状态和目标位置，实际时间推进由 Clock 完成。
   Context!: EngineContext;
   TransportContext!: TransportContext;
 
@@ -4065,6 +4200,7 @@ export class InnerTransport implements Transport {
   }
 
   Pause(): void {
+    // 仅在真正 Walking 时记录位置；重复 Pause 不会覆盖 StopAt。
     if (this.TransportContext.Walking()) {
       this.TransportContext.StopAt =
         this.Context.RTC.Precision.Position.Clone();
@@ -4126,6 +4262,8 @@ export class InnerTransport implements Transport {
   }
 
   private tryRebaseToStopAt(): void {
+    // 恢复播放前同步重定位工作时间和音序器 Back，
+    // 防止暂停期间积压的 step 被连续补播。
     const at = this.TransportContext.StopAt;
     this.TransportContext.StopAt = null;
     if (!at) {
@@ -4149,6 +4287,8 @@ export class InnerTransport implements Transport {
 // Automatic engine lifecycle and boot
 
 export class AutoEngineController implements Part, Life {
+  // 把 Engine 的 Create/Start/Join/Stop/Destroy 接入通用生命周期。
+  // OnRun 等待 Join 完成，确保后续停止阶段不会提前执行。
   private context: EngineContext | null = null;
 
   GetInfo(): PartInfo {
@@ -4170,6 +4310,8 @@ export class AutoEngineController implements Part, Life {
 }
 
 export class Boot {
+  // 创建引擎并运行主生命周期。若配置包含 AutoEngineController，
+  // Run 返回的 Promise 会保持到引擎被停止。
   async Run(config: Configuration | null = null): Promise<void> {
     let cfg = config;
     if (!cfg) {
@@ -4206,6 +4348,8 @@ type ActionHandler = (
 ) => void;
 
 export class InnerActionController implements ActionController {
+  // 将控制动作映射为 Transport 或 MIDI 操作。Pause/Resume 共用一个
+  // 切换逻辑：Walking 时暂停，否则恢复。
   private readonly handlers = new Map<Action, ActionHandler>();
 
   constructor(private readonly context: EngineContext) {
@@ -4273,6 +4417,7 @@ export function NewActionController(context: EngineContext): ActionController {
 }
 
 export class Monitor {
+  // 低频状态监控器，只负责日志输出，不参与音频调度。
   private context: EngineContext | null = null;
   private timer: Timer | null = null;
   InputKeyCount = 0;
