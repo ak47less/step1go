@@ -86,14 +86,14 @@ func TestEventDispatcherQueuesAndRunnerDispatchesMatchingCallbacks(t *testing.T)
 		}
 	}
 
-	if err := dispatcher.Dispatch(Event{
+	if err := dispatcher.Dispatch(&Event{
 		Type:   eventTestType,
 		ID:     eventTestID,
 		Sender: "first",
 	}); err != nil {
 		t.Fatalf("Dispatch(first) returned error: %v", err)
 	}
-	if err := dispatcher.Dispatch(Event{
+	if err := dispatcher.Dispatch(&Event{
 		Type:   eventTestType,
 		ID:     eventTestID,
 		Sender: "second",
@@ -147,7 +147,7 @@ func TestEventRunnerPropagatesCallbackErrorAndStops(t *testing.T) {
 	}
 
 	for _, sender := range []string{"first", "second"} {
-		if err := dispatcher.Dispatch(Event{
+		if err := dispatcher.Dispatch(&Event{
 			Type:   eventTestType,
 			ID:     eventTestID,
 			Sender: sender,
@@ -178,7 +178,7 @@ func TestEventCallbackCanDispatchAnotherEvent(t *testing.T) {
 		Fn: func(event *Event) error {
 			got = append(got, event.ID)
 			if event.ID == eventTestID {
-				return dispatcher.Dispatch(Event{
+				return dispatcher.Dispatch(&Event{
 					Type: eventTestType,
 					ID:   eventTestID + 1,
 				})
@@ -199,7 +199,7 @@ func TestEventCallbackCanDispatchAnotherEvent(t *testing.T) {
 		t.Fatalf("AddCallback(second) returned error: %v", err)
 	}
 
-	if err := dispatcher.Dispatch(Event{Type: eventTestType, ID: eventTestID}); err != nil {
+	if err := dispatcher.Dispatch(&Event{Type: eventTestType, ID: eventTestID}); err != nil {
 		t.Fatalf("Dispatch() returned error: %v", err)
 	}
 	if err := ctx.GetRunner().Run(); err != nil {
@@ -243,7 +243,7 @@ func TestEventDispatcherAddAndRemoveCallback(t *testing.T) {
 		t.Error("RemoveCallback() removed an already removed callback")
 	}
 
-	if err := dispatcher.Dispatch(Event{Type: eventTestType, ID: eventTestID}); err != nil {
+	if err := dispatcher.Dispatch(&Event{Type: eventTestType, ID: eventTestID}); err != nil {
 		t.Fatalf("Dispatch() returned error: %v", err)
 	}
 	if err := ctx.GetRunner().Run(); err != nil {
@@ -269,7 +269,7 @@ func TestEventRunnerRunContext(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AddCallback() returned error: %v", err)
 	}
-	if err := second.GetDispatcher().Dispatch(Event{
+	if err := second.GetDispatcher().Dispatch(&Event{
 		Type: eventTestType,
 		ID:   eventTestID,
 	}); err != nil {
@@ -314,7 +314,7 @@ func TestEventContextConcurrentDispatch(t *testing.T) {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			if err := ctx.GetDispatcher().Dispatch(Event{
+			if err := ctx.GetDispatcher().Dispatch(&Event{
 				Type: eventTestType,
 				ID:   eventTestID,
 			}); err != nil {
