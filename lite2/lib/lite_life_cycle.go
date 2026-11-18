@@ -1,22 +1,30 @@
 package lib
 
-type Life interface {
-	GetLifeCycle() *LifeCycle
-}
+////////////////////////////////////////////////////////////////////////////////
 
-type LifeCallbackFunc func() error
+type LifeStageCallbackFunc func() error
+
+type LifeInitCallbackFunc func(ctx *ApplicationContext) error
+
+////////////////////////////////////////////////////////////////////////////////
 
 type LifeCycle struct {
-	OnInit func(ctx *AppContext) error
+	OnInit LifeInitCallbackFunc
 
-	OnCreate  LifeCallbackFunc
-	OnStart   LifeCallbackFunc
-	OnResume  LifeCallbackFunc
-	OnPause   LifeCallbackFunc
-	OnStop    LifeCallbackFunc
-	OnDestroy LifeCallbackFunc
+	OnCreate  LifeStageCallbackFunc
+	OnStart   LifeStageCallbackFunc
+	OnResume  LifeStageCallbackFunc
+	OnPause   LifeStageCallbackFunc
+	OnStop    LifeStageCallbackFunc
+	OnDestroy LifeStageCallbackFunc
 
 	Order int
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type Life interface {
+	GetLifeCycle() *LifeCycle
 }
 
 type LifeManager interface {
@@ -26,3 +34,32 @@ type LifeManager interface {
 
 	GetMain() Life
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+func NewLifeManager() LifeManager {
+	return new(innerLifeManager)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type innerLifeManager struct {
+}
+
+// AddCycle implements [LifeManager].
+func (inst *innerLifeManager) AddCycle(lc *LifeCycle) error {
+	panic("unimplemented")
+}
+
+// AddLife implements [LifeManager].
+func (inst *innerLifeManager) AddLife(l Life) error {
+	panic("unimplemented")
+}
+
+// GetMain implements [LifeManager].
+func (inst *innerLifeManager) GetMain() Life {
+	panic("unimplemented")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF

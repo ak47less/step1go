@@ -1,16 +1,161 @@
 package lib
 
-type AppContext struct {
-	Parts PartManager
+import (
+	"sort"
 
-	LifeManager LifeManager
+	"github.com/ak47less/step1go/common"
+	"github.com/ak47less/step1go/lite2/core"
+)
 
-	Session Session
+////////////////////////////////////////////////////////////////////////////////
 
-	Engine Engine
+type ApplicationContext struct {
 
-	Sequencer Sequencer
+	// config
+
+	Configuration *Configuration
+
+	Factory ApplicationContextFactory
+
+	Runner ApplicationRunner
+
+	Properties core.Properties
 
 	// contexts
 
+	EngineContext    *EngineContext
+	SequencerContext *SequencerContext
+	SessionContext   *SessionContext
+
+	// detail api
+
+	Logger          core.Logger
+	Parts           PartManager
+	LifeManager     LifeManager
+	Session         Session
+	Engine          Engine
+	Sequencer       Sequencer
+	EventDispatcher EventDispatcher
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type ApplicationContextFactory interface {
+	CreateApplicationContext(cfg *Configuration) (*ApplicationContext, error)
+}
+
+type ApplicationRunner interface {
+	Run(ctx *ApplicationContext) error
+}
+
+func NewApplicationContextFactory() ApplicationContextFactory {
+	return new(innerApplicationContextFactory)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type innerApplicationContextFactory struct {
+}
+
+// CreateApplicationContext implements [ApplicationContextFactory].
+func (inst *innerApplicationContextFactory) CreateApplicationContext(cfg *Configuration) (*ApplicationContext, error) {
+
+	ac := new(ApplicationContext)
+
+	ac.Configuration = cfg
+	ac.Factory = inst
+
+	ac.EngineContext = new(EngineContext)
+	ac.SessionContext = new(SessionContext)
+	ac.SequencerContext = new(SequencerContext)
+
+	ac.Parts = NewPartManager()
+	ac.LifeManager = NewLifeManager()
+	ac.Logger = common.Log()
+
+	ac.EngineContext.AC = ac
+	ac.SessionContext.AC = ac
+	ac.SequencerContext.AC = ac
+
+	err := inst.innerApplyAll(cfg, ac)
+	if err != nil {
+		return nil, err
+	}
+
+	return ac, nil
+}
+
+func (inst *innerApplicationContextFactory) innerApplyAll(cfg *Configuration, ctx *ApplicationContext) error {
+
+	var err error
+	list := make([]func(ctx *ApplicationContext, cfg *Configuration) error, 0)
+
+	list = append(list, inst.innerApplyConfigurators)
+	list = append(list, inst.innerApplyProperties)
+	list = append(list, inst.innerApplyParts)
+
+	for _, fn := range list {
+		err = fn(ctx, cfg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *innerApplicationContextFactory) innerApplyProperties(ctx *ApplicationContext, cfg *Configuration) error {
+	return nil
+}
+
+func (inst *innerApplicationContextFactory) innerApplyConfigurators(ctx *ApplicationContext, cfg *Configuration) error {
+
+	src := cfg.Configurators
+	tmp := make([]*ConfiguratorRegistration, 0)
+
+	for _, reg := range src {
+		if reg == nil {
+			continue
+		}
+		if reg.Configurator == nil {
+			continue
+		}
+		tmp = append(tmp, reg)
+	}
+
+	sort.Slice(tmp, func(i, j int) bool {
+		o1 := tmp[i]
+		o2 := tmp[j]
+		return (o1.Order < o2.Order)
+	})
+
+	for _, reg := range tmp {
+		reg.Configurator.Configure(cfg)
+	}
+
+	return nil
+}
+
+func (inst *innerApplicationContextFactory) innerApplyParts(ctx *ApplicationContext, cfg *Configuration) error {
+
+	var err error
+	src := cfg.Parts
+	dst1 := ctx.Parts
+	dst2 := dst1.GetRegistry()
+
+	for _, item := range src {
+		err = dst2.RegisterAny(item)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (inst *innerApplicationContextFactory) _impl() ApplicationContextFactory {
+	return inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF

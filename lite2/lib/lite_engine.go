@@ -3,6 +3,8 @@ package lib
 import "github.com/ak47less/step1go/lite2/core"
 
 type EngineContext struct {
+	AC *ApplicationContext
+
 	Engine Engine
 
 	FrameTimeline    *core.Timeline

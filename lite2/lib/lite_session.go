@@ -1,6 +1,8 @@
 package lib
 
 type SessionContext struct {
+	AC *ApplicationContext
+
 	Session Session
 }
 

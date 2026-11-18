@@ -1,6 +1,8 @@
 package lib
 
 type SequencerContext struct {
+	AC *ApplicationContext
+
 	Sequencer Sequencer
 }
 
