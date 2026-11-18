@@ -44,10 +44,6 @@ type ApplicationContextFactory interface {
 	CreateApplicationContext(cfg *Configuration) (*ApplicationContext, error)
 }
 
-type ApplicationRunner interface {
-	Run(ctx *ApplicationContext) error
-}
-
 func NewApplicationContextFactory() ApplicationContextFactory {
 	return new(innerApplicationContextFactory)
 }
@@ -93,6 +89,7 @@ func (inst *innerApplicationContextFactory) innerApplyAll(cfg *Configuration, ct
 	list = append(list, inst.innerApplyConfigurators)
 	list = append(list, inst.innerApplyProperties)
 	list = append(list, inst.innerApplyParts)
+	list = append(list, inst.innerInitLifeCycle)
 
 	for _, fn := range list {
 		err = fn(ctx, cfg)
@@ -105,6 +102,7 @@ func (inst *innerApplicationContextFactory) innerApplyAll(cfg *Configuration, ct
 }
 
 func (inst *innerApplicationContextFactory) innerApplyProperties(ctx *ApplicationContext, cfg *Configuration) error {
+	ctx.Properties = cfg.Properties
 	return nil
 }
 
@@ -151,6 +149,30 @@ func (inst *innerApplicationContextFactory) innerApplyParts(ctx *ApplicationCont
 	}
 
 	return nil
+}
+
+func (inst *innerApplicationContextFactory) innerInitLifeCycle(ctx *ApplicationContext, cfg *Configuration) error {
+
+	src := ctx.Parts
+	dst := ctx.LifeManager
+	namelist := src.ListNames()
+
+	for _, name := range namelist {
+
+		info, err := src.GetInfoByName(name)
+		if err != nil {
+			return err
+		}
+
+		life, ok := info.Part.(Life)
+		if ok && (life != nil) {
+			dst.AddLife(life)
+		}
+	}
+
+	ml := dst.GetMain()
+	mlc := ml.GetLifeCycle()
+	return mlc.OnInit(ctx)
 }
 
 func (inst *innerApplicationContextFactory) _impl() ApplicationContextFactory {

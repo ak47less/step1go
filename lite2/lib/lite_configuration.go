@@ -10,6 +10,8 @@ type Configuration struct {
 	Parts []any
 
 	ApplicationContextFactory ApplicationContextFactory
+
+	Driver Driver
 }
 
 type Configurator interface {
