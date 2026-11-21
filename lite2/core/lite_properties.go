@@ -41,3 +41,8 @@ func (p Properties) GetValueRequired(name string) (string, error) {
 	}
 	return value, nil
 }
+
+func (p Properties) Getter() PropertyGetter {
+	getter := new(innerPropertyGetter)
+	return getter.init(p)
+}
