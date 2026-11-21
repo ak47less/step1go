@@ -11,21 +11,19 @@ import (
 
 type ApplicationContext struct {
 
-	// config
+	// config & app
 
 	Configuration *Configuration
-
-	Factory ApplicationContextFactory
-
-	Runner ApplicationRunner
-
-	Properties core.Properties
+	Properties    core.Properties
+	Factory       ApplicationContextFactory
+	Runner        ApplicationRunner
 
 	// contexts
 
 	EngineContext    *EngineContext
 	SequencerContext *SequencerContext
 	SessionContext   *SessionContext
+	TransportContext *TransportContext
 
 	// detail api
 
@@ -36,6 +34,8 @@ type ApplicationContext struct {
 	Engine          Engine
 	Sequencer       Sequencer
 	EventDispatcher EventDispatcher
+	Transport       Transport
+	Clock           Clock
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +64,7 @@ func (inst *innerApplicationContextFactory) CreateApplicationContext(cfg *Config
 	ac.EngineContext = new(EngineContext)
 	ac.SessionContext = new(SessionContext)
 	ac.SequencerContext = new(SequencerContext)
+	ac.TransportContext = new(TransportContext)
 
 	ac.Parts = NewPartManager()
 	ac.LifeManager = NewLifeManager()
@@ -72,6 +73,7 @@ func (inst *innerApplicationContextFactory) CreateApplicationContext(cfg *Config
 	ac.EngineContext.AC = ac
 	ac.SessionContext.AC = ac
 	ac.SequencerContext.AC = ac
+	ac.TransportContext.AC = ac
 
 	err := inst.innerApplyAll(cfg, ac)
 	if err != nil {

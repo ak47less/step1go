@@ -57,6 +57,7 @@ type EventCallback struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type DefaultEventDispatcher struct {
+	context *ApplicationContext
 }
 
 // AddListener implements [EventDispatcher].
@@ -77,13 +78,38 @@ func (inst *DefaultEventDispatcher) RemoveListener(ec *EventCallback) {
 // GetLifeCycle implements [Life].
 func (inst *DefaultEventDispatcher) GetLifeCycle() *LifeCycle {
 	lc := &LifeCycle{
-		OnInit: inst.onInit,
+		OnInit:   inst.onInit,
+		OnCreate: inst.onCreate,
 	}
 	return lc
 }
 
 func (inst *DefaultEventDispatcher) onInit(ac *ApplicationContext) error {
 	ac.EventDispatcher = inst
+	inst.context = ac
+	return nil
+}
+
+func (inst *DefaultEventDispatcher) onCreate() error {
+
+	ob := &ClockObserver{
+		Preload: false,
+		Unit:    ClockUnitFrame,
+		Handler: inst.onFrameClock,
+	}
+
+	inst.context.Clock.AddObserver(ob)
+
+	return nil
+}
+
+func (inst *DefaultEventDispatcher) onFrameClock(e *ClockEvent) error {
+
+	logger := inst.context.Logger
+
+	const f = "DefaultEventDispatcher: on_frame() [event index:%d unit:%d unit_len:%f realtime:%f thistime:%f ]"
+	logger.Info(f, e.Index, e.Unit, e.UnitLength, e.Realtime, e.Thistime)
+
 	return nil
 }
 

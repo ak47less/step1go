@@ -4,11 +4,29 @@ package core
 
 type TimePoint Seconds
 
-type TimeLength Seconds
+func (tp TimePoint) Add(length TimeLength) TimePoint {
+	return tp + TimePoint(length)
+}
 
-type TimelineType int
+func (tp TimePoint) Sub(p2 TimePoint) TimeLength {
+	value := tp - p2
+	return TimeLength(value)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
+
+type TimeLength Seconds
+
+func (l TimeLength) Absolute() TimeLength {
+	if l < 0 {
+		return -l
+	}
+	return l
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type TimelineType int
 
 const (
 	TimelineTypeMin TimelineType = iota
@@ -18,6 +36,9 @@ const (
 	TimelineTypeEngine
 	TimelineTypeLoop
 	TimelineTypeFrame
+	TimelineTypeClip
+	TimelineTypeTransport
+	TimelineTypeStep
 
 	TimelineTypeMax
 )

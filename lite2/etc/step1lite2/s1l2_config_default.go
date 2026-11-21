@@ -40,6 +40,8 @@ func (i *innerDefaultConfig) Configure(cfg *lib.Configuration) {
 	cfg.Parts = append(cfg.Parts, new(lib.DefaultEventDispatcher))
 	cfg.Parts = append(cfg.Parts, new(lib.DefaultSequencer))
 	cfg.Parts = append(cfg.Parts, new(lib.DefaultSession))
+	cfg.Parts = append(cfg.Parts, lib.NewClock())
+	cfg.Parts = append(cfg.Parts, lib.NewTransport())
 
 }
 

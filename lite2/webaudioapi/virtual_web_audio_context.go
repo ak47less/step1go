@@ -1,7 +1,9 @@
 package webaudioapi
 
+import "github.com/ak47less/step1go/common"
+
 // Seconds is a time on the Web Audio timeline, measured in seconds.
-type Seconds float64
+type Seconds = common.Seconds
 
 // SampleRate is a number of PCM frames per second.
 type SampleRate float64
