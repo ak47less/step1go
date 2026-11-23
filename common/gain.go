@@ -1,16 +1,18 @@
 package common
 
+import "math"
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // 以 百分比 的形式表示增益, 100(%) 代表 0dB
 type GainPercent float32
 
 func (value GainPercent) DB() GainDB {
-	return 0 // todo : no impl
+	return value.Rate().DB()
 }
 
 func (value GainPercent) Rate() GainRate {
-	return 0 // todo : no impl
+	return GainRate(value / 100)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -19,11 +21,11 @@ func (value GainPercent) Rate() GainRate {
 type GainDB float32
 
 func (value GainDB) Percent() GainPercent {
-	return 0 // todo : no impl
+	return value.Rate().Percent()
 }
 
 func (value GainDB) Rate() GainRate {
-	return 0 // todo : no impl
+	return GainRate(math.Pow(10, float64(value)/20))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,11 +34,11 @@ func (value GainDB) Rate() GainRate {
 type GainRate float32
 
 func (value GainRate) DB() GainDB {
-	return 0 // todo : no impl
+	return GainDB(20 * math.Log10(float64(value)))
 }
 
 func (value GainRate) Percent() GainPercent {
-	return 0 // todo : no impl
+	return GainPercent(value * 100)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
