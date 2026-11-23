@@ -39,6 +39,11 @@ func (inst *DefaultSequencer) onInit(ac *ApplicationContext) error {
 	ac.Sequencer = inst
 	inst.context = sc
 
+	err := inst.innerInitCube(ac)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

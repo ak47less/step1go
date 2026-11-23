@@ -33,6 +33,13 @@ func (i *innerDefaultConfig) Configure(cfg *lib.Configuration) {
 
 	cfg.Properties.SetValue("config.default.done", "yes")
 
+	cfg.Properties.SetValue("cube.banks.capacity", "8")
+	cfg.Properties.SetValue("cube.banks.length", "4")
+	cfg.Properties.SetValue("cube.steps.capacity", "32")
+	cfg.Properties.SetValue("cube.steps.length", "16")
+	cfg.Properties.SetValue("cube.tracks.capacity", "12")
+	cfg.Properties.SetValue("cube.tracks.length", "6")
+
 	// parts
 
 	cfg.Parts = append(cfg.Parts, new(lib.DefaultAppRunner))

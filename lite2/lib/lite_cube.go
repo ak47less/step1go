@@ -1,6 +1,6 @@
 package lib
 
-import "fmt"
+////////////////////////////////////////////////////////////////////////////////
 
 type CubeConfig struct {
 	BankListCapacity uint
@@ -13,15 +13,14 @@ type CubeConfig struct {
 	TrackListLength   uint
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 type Cube struct {
 	CurrentBankIndex  BankIndex
 	CurrentStepIndex  StepIndex
 	CurrentTrackIndex TrackIndex
 
-	AllBanks  BankArray
-	AllSteps  StepArray
-	AllTracks TrackArray
-	AllCells  CellManager
+	Buffer CubeBuffer
 
 	Banks  BankSlice
 	Steps  StepSlice
@@ -30,5 +29,17 @@ type Cube struct {
 
 func (inst *Cube) Init(cfg *CubeConfig) error {
 
-	return fmt.Errorf("no impl")
+	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type CubeBuffer struct {
+	BankBuffer  BankArray
+	StepBuffer  StepArray
+	TrackBuffer TrackArray
+	CellBuffer  CellManager
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF
