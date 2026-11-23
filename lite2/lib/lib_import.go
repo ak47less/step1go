@@ -24,3 +24,8 @@ type Timer = core.Timer
 type Seconds = core.Seconds
 type TimeLength = core.TimeLength
 type TimePoint = core.TimePoint
+
+type GainDB = core.GainDB
+type GainLevel = core.GainLevel
+type GainPercent = core.GainPercent
+type GainRate = core.GainRate

@@ -15,6 +15,10 @@ type EngineContext struct {
 	Driver       Driver
 	AudioContext AudioContext
 
+	// 用一个乐器作为MIDI输入接口
+	Instrument       Instrument
+	InstrumentHolder InstrumentHolder
+
 	FrameTimeline     *core.Timeline
 	LoopTimeline      *core.Timeline
 	EngineTimeline    *core.Timeline

@@ -1,6 +1,16 @@
 package lib
 
-type Instrument interface{}
+type Instrument interface {
+	Dispatch(events ...*MidiEvent) error
+}
+
+type InstrumentHolder interface {
+	GetInstrument() (Instrument, error)
+}
+
+type InstrumentLoader interface {
+	LoadInstrument(info *InstrumentInfo) (Instrument, error)
+}
 
 type InstrumentInfo struct {
 	Name   string
@@ -8,7 +18,8 @@ type InstrumentInfo struct {
 	Preset string
 }
 
-type InstrumentContext struct{}
+type InstrumentContext struct {
+}
 
 type InstrumentParams struct {
 	InstrumentInfo
@@ -37,5 +48,64 @@ type InstrumentManager interface {
 }
 
 type InstrumentRegistry interface {
-	Register(ip *InstrumentProvider) error
+	Register(provider InstrumentProvider) error
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+type AutoInstrumentRegistry struct {
+	context *ApplicationContext
+}
+
+// GetLifeCycle implements [Life].
+func (inst *AutoInstrumentRegistry) GetLifeCycle() *LifeCycle {
+	lc := &LifeCycle{
+		OnInit:   inst.innerOnInit,
+		OnCreate: inst.innerOnCreate,
+	}
+	return lc
+}
+
+func (inst *AutoInstrumentRegistry) innerOnInit(ac *ApplicationContext) error {
+	inst.context = ac
+	return nil
+}
+
+func (inst *AutoInstrumentRegistry) innerOnCreate() error {
+	return inst.innerScanForInstruments()
+}
+
+func (inst *AutoInstrumentRegistry) innerScanForInstruments() error {
+
+	src := inst.context.Parts
+	namelist := src.ListNames()
+
+	for _, name := range namelist {
+		info, err := src.GetInfoByName(name)
+		if err != nil {
+			return err
+		}
+		part := info.Part
+		provider, ok := part.(InstrumentProvider)
+		if ok && provider != nil {
+			err = inst.Register(provider)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Register implements [InstrumentRegistry].
+func (inst *AutoInstrumentRegistry) Register(ip InstrumentProvider) error {
+	panic("unimplemented")
+}
+
+func (inst *AutoInstrumentRegistry) _impl() (InstrumentRegistry, Life) {
+	return inst, inst
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// EOF

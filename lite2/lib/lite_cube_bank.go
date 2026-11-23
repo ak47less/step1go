@@ -7,29 +7,29 @@ import "fmt"
 type BankIndex uint
 
 type Bank struct {
+	Cube *Cube
+
 	Index BankIndex
 
 	Label string
 
 	Description string
 
-	StepBuffer StepArray
-
-	Steps  StepSlice
-	Tracks TrackSlice
+	// StepBuffer StepArray
+	// Steps      StepSlice
+	// Tracks     TrackSlice
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type BankArray []*Bank
 
-func (array BankArray) Init(cap int) BankArray {
+func (array BankArray) Init(cap uint) BankArray {
 
-	count := array.Capacity()
-
-	if count < 1 {
+	if array.Capacity() < 1 {
+		var i uint
 		array = make(BankArray, cap)
-		for i := 0; i < count; i++ {
+		for i = 0; i < cap; i++ {
 			label := fmt.Sprintf("bank_%d", i)
 			item := &Bank{
 				Index: BankIndex(i),
@@ -42,25 +42,27 @@ func (array BankArray) Init(cap int) BankArray {
 	return array
 }
 
-func (array BankArray) Slice(length int) BankSlice {
+func (array BankArray) Slice(length uint) BankSlice {
 	dst := array
 	cap := array.Capacity()
-	if 0 <= length && length <= cap {
+	if length <= cap {
 		dst = array[0:length]
 	}
 	return BankSlice(dst)
 }
 
-func (array BankArray) Capacity() int {
-	return len(array)
+func (array BankArray) Capacity() uint {
+	n := len(array)
+	return uint(n)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type BankSlice []*Bank
 
-func (sl BankSlice) Length() int {
-	return len(sl)
+func (sl BankSlice) Length() uint {
+	n := len(sl)
+	return uint(n)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

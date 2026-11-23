@@ -27,15 +27,17 @@ type ApplicationContext struct {
 
 	// detail api
 
-	Logger          core.Logger
-	Parts           PartManager
-	LifeManager     LifeManager
-	Session         Session
-	Engine          Engine
-	Sequencer       Sequencer
-	EventDispatcher EventDispatcher
-	Transport       Transport
-	Clock           Clock
+	Logger            core.Logger
+	Parts             PartManager
+	LifeManager       LifeManager
+	Session           Session
+	Engine            Engine
+	Sequencer         Sequencer
+	EventDispatcher   EventDispatcher
+	Transport         Transport
+	Clock             Clock
+	ActionController  ActionController
+	InstrumentManager InstrumentManager
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,10 @@
 package lib
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/ak47less/step1go/lite2/core"
+)
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -17,6 +21,8 @@ type Track struct {
 	Solo    bool
 	Mute    bool
 
+	Gain GainDB
+
 	Index TrackIndex
 
 	Name TrackName
@@ -26,22 +32,26 @@ type Track struct {
 	Description string
 
 	Order int
+
+	Channel core.MidiChannelNum
+
+	Instrument       Instrument
+	InstrumentHolder InstrumentHolder
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type TrackArray []*Track
 
-func (array TrackArray) Init(cap int) TrackArray {
+func (array TrackArray) Init(cap uint) TrackArray {
 
-	count := array.Capacity()
-
-	if count < 1 {
+	if array.Capacity() < 1 {
+		var i uint
 		array = make(TrackArray, cap)
-		for i := 0; i < count; i++ {
-			label := fmt.Sprintf("bank_%d", i)
+		for i = 0; i < cap; i++ {
+			label := fmt.Sprintf("track_%d", i)
 			item := &Track{
-				Index: BankIndex(i),
+				Index: TrackIndex(i),
 				Label: label,
 			}
 			array[i] = item
@@ -51,25 +61,25 @@ func (array TrackArray) Init(cap int) TrackArray {
 	return array
 }
 
-func (array TrackArray) Slice(length int) TrackSlice {
+func (array TrackArray) Slice(length uint) TrackSlice {
 	dst := array
 	cap := array.Capacity()
-	if 0 <= length && length <= cap {
+	if length <= cap {
 		dst = array[0:length]
 	}
 	return TrackSlice(dst)
 }
 
-func (array TrackArray) Capacity() int {
-	return len(array)
+func (array TrackArray) Capacity() uint {
+	return uint(len(array))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type TrackSlice []*Track
 
-func (sl TrackSlice) Length() int {
-	return len(sl)
+func (sl TrackSlice) Length() uint {
+	return uint(len(sl))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

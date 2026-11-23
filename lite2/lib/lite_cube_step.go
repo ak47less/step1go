@@ -1,7 +1,5 @@
 package lib
 
-import "fmt"
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type StepIndex int
@@ -10,23 +8,23 @@ type StepCount uint
 
 type Step struct {
 	Cube *Cube
+
+	Index StepIndex
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type StepArray []*Step
 
-func (array StepArray) Init(cap int) StepArray {
+func (array StepArray) Init(cap uint) StepArray {
 
-	count := array.Capacity()
+	if array.Capacity() < 1 {
+		var i uint
+		array = make(StepArray, cap)
+		for i = 0; i < cap; i++ {
 
-	if count < 1 {
-		array = make(BankArray, cap)
-		for i := 0; i < count; i++ {
-			label := fmt.Sprintf("bank_%d", i)
-			item := &Bank{
-				Index: BankIndex(i),
-				Label: label,
+			item := &Step{
+				Index: StepIndex(i),
 			}
 			array[i] = item
 		}
@@ -35,25 +33,25 @@ func (array StepArray) Init(cap int) StepArray {
 	return array
 }
 
-func (array StepArray) Slice(length int) StepSlice {
+func (array StepArray) Slice(length uint) StepSlice {
 	dst := array
 	cap := array.Capacity()
-	if 0 <= length && length <= cap {
+	if length <= cap {
 		dst = array[0:length]
 	}
 	return StepSlice(dst)
 }
 
-func (array StepArray) Capacity() int {
-	return len(array)
+func (array StepArray) Capacity() uint {
+	return uint(len(array))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type StepSlice []*Step
 
-func (sl StepSlice) Length() int {
-	return len(sl)
+func (sl StepSlice) Length() uint {
+	return uint(len(sl))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
