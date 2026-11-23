@@ -227,6 +227,34 @@ func TestHealthAndErrorResponses(t *testing.T) {
 	}
 }
 
+func TestSPAIsMountedAtRoot(t *testing.T) {
+	web, _ := newTestWebServer(t)
+	handler := web.handler()
+
+	for _, target := range []string{"/", "/projects/current"} {
+		response := performRequest(handler, http.MethodGet, target, "")
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want %d", target, response.Code, http.StatusOK)
+		}
+		if contentType := response.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+			t.Fatalf("%s content type = %q", target, contentType)
+		}
+		if !strings.Contains(response.Body.String(), "<!DOCTYPE html>") {
+			t.Fatalf("%s did not return index.html", target)
+		}
+	}
+
+	response := performRequest(handler, http.MethodGet, "/missing.js", "")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("missing asset status = %d, want %d", response.Code, http.StatusNotFound)
+	}
+
+	response = performRequest(handler, http.MethodPost, "/projects/current", "{}")
+	if response.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("SPA POST status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
+	}
+}
+
 func TestStatusAndCommands(t *testing.T) {
 	web, controller := newTestWebServer(t)
 	handler := web.handler()
@@ -392,9 +420,21 @@ func TestServerStartAndStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request health: %v", err)
 	}
-	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("health status = %d", response.StatusCode)
+	}
+	response.Body.Close()
+
+	response, err = client.Get("http://" + address + "/")
+	if err != nil {
+		t.Fatalf("request SPA: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("SPA status = %d", response.StatusCode)
+	}
+	if contentType := response.Header.Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+		t.Fatalf("SPA content type = %q", contentType)
 	}
 
 	if err := web.stop(); err != nil {

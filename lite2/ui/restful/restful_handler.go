@@ -52,7 +52,7 @@ func (inst *innerWebServer) handler() http.Handler {
 	mux.HandleFunc(restBasePath+"/cells", inst.handleCells)
 	mux.HandleFunc(restBasePath+"/cells/{cellName}", inst.handleCell)
 	mux.HandleFunc(restBasePath+"/actions", inst.handleActions)
-	mux.HandleFunc("/", inst.handleNotFound)
+	mux.HandleFunc("/", inst.handleSPA)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

@@ -135,8 +135,9 @@ func (inst *innerWebServer) start() error {
 		return fmt.Errorf("listen on %s: %w", address, err)
 	}
 
-	logger := inst.context.Logger
-	logger.Info("serve HTTP RESTful API @%s", address)
+	if inst.context != nil && inst.context.Logger != nil {
+		inst.context.Logger.Info("serve HTTP RESTful API @%s", address)
+	}
 
 	server := &http.Server{
 		Handler:           inst.handler(),
