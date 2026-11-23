@@ -5,7 +5,7 @@ import "github.com/ak47less/step1go/lite2/core"
 type Configuration struct {
 	Properties core.Properties
 
-	UseRestApi bool
+	WebServer *WebServerConfig
 
 	Configurators []*ConfiguratorRegistration
 
@@ -28,4 +28,12 @@ type ConfiguratorRegistration struct {
 	Order int
 
 	Configurator Configurator
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type WebServerConfig struct {
+	Enabled bool
+	Host    string
+	Port    int
 }

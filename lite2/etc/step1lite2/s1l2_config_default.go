@@ -2,6 +2,7 @@ package step1lite2
 
 import (
 	"github.com/ak47less/step1go/lite2/lib"
+	"github.com/ak47less/step1go/lite2/ui/restful"
 	"github.com/ak47less/step1go/lite2/webaudioapi/mock"
 )
 
@@ -49,6 +50,8 @@ func (i *innerDefaultConfig) Configure(cfg *lib.Configuration) {
 	cfg.Parts = append(cfg.Parts, new(lib.DefaultSession))
 	cfg.Parts = append(cfg.Parts, lib.NewClock())
 	cfg.Parts = append(cfg.Parts, lib.NewTransport())
+	cfg.Parts = append(cfg.Parts, new(restful.ServerLoader))
+	cfg.Parts = append(cfg.Parts, new(lib.DefaultActionController))
 
 }
 
