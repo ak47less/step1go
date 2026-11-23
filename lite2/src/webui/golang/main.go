@@ -14,6 +14,8 @@ func main() {
 	ws.Host = ""
 	ws.Port = 9853
 
+	// ws.Port = 80
+
 	cfg := a.Configure()
 	cfg.WebServer = ws
 

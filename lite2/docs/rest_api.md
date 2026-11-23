@@ -3,9 +3,9 @@
 本文档定义 Web 前端与 STEP1 Lite2 后端之间的 HTTP/JSON 接口约定，接口范围来自当前
 `lib` 中的引擎、走带、状态、Cube（bank/step/track/cell）和 MIDI 相关能力。
 
-> 实现状态：当前 `src/webui/golang/main.go` 仍是占位程序，尚未启动 HTTP 服务。
-> 本文是后续 Web API 服务的接口草案；除“批量 Action 接口”沿用已有协议外，资源
-> 路径和字段均为新增约定。
+> 实现状态：`ui/restful` 已按本文提供基于标准库 `net/http` 的 HTTP 服务，服务器
+> 由 `WebServerConfig` 控制启用、主机和端口。引擎与走带命令最终由
+> `ActionController` 的后端实现执行。
 
 ## 1. 通用约定
 
