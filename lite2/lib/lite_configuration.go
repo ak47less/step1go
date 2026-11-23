@@ -5,6 +5,8 @@ import "github.com/ak47less/step1go/lite2/core"
 type Configuration struct {
 	Properties core.Properties
 
+	UseRestApi bool
+
 	Configurators []*ConfiguratorRegistration
 
 	Parts []any
