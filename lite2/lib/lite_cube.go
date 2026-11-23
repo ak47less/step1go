@@ -16,11 +16,13 @@ type CubeConfig struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 type Cube struct {
-	CurrentBankIndex  BankIndex
-	CurrentStepIndex  StepIndex
-	CurrentTrackIndex TrackIndex
 
-	Buffer CubeBuffer
+	// CurrentBankIndex  BankIndex
+	// CurrentStepIndex  StepIndex
+	// CurrentTrackIndex TrackIndex
+
+	Cells   CellManager
+	Buffers CubeBuffers
 
 	Banks  BankSlice
 	Steps  StepSlice
@@ -29,16 +31,21 @@ type Cube struct {
 
 func (inst *Cube) Init(cfg *CubeConfig) error {
 
+	cm, err := NewCellManager(inst, cfg)
+	if err != nil {
+		return err
+	}
+
+	inst.Cells = cm
 	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-type CubeBuffer struct {
+type CubeBuffers struct {
 	BankBuffer  BankArray
 	StepBuffer  StepArray
 	TrackBuffer TrackArray
-	CellBuffer  CellManager
 }
 
 ////////////////////////////////////////////////////////////////////////////////

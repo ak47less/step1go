@@ -12,3 +12,5 @@ type Tempo = common.Tempo
 type PitchNumber = common.PitchNumber
 
 type Logger = common.Logger
+
+type GainLevel = float32
