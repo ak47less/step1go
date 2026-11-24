@@ -22,6 +22,8 @@ type CellCoordinate struct {
 type SimpleCell struct {
 	CellCoordinate
 
+	Name CellName
+
 	OwnerCube  *Cube
 	OwnerBank  *Bank
 	OwnerStep  *Step
@@ -29,7 +31,7 @@ type SimpleCell struct {
 
 	Complex *ComplexCell
 
-	Name CellName
+	Note *MidiNote
 }
 
 type ComplexCell struct {
