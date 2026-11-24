@@ -807,34 +807,37 @@ func (inst *innerWebServer) resolveTimeline(name string) (*lib.Timeline, error) 
 	if name == "" {
 		name = "@document"
 	}
+
+	tls := &ec.Timelines
+
 	switch strings.TrimPrefix(name, "@") {
 	case "root":
-		if ec.RootTimeline != nil {
-			return ec.RootTimeline, nil
+		if tls.Root != nil {
+			return tls.Root, nil
 		}
 	case "document":
-		if ec.DocumentTimeline != nil {
-			return ec.DocumentTimeline, nil
+		if tls.Document != nil {
+			return tls.Document, nil
 		}
 	case "engine":
-		if ec.EngineTimeline != nil {
-			return ec.EngineTimeline, nil
+		if tls.Engine != nil {
+			return tls.Engine, nil
 		}
 	case "loop":
-		if ec.LoopTimeline != nil {
-			return ec.LoopTimeline, nil
+		if tls.Loop != nil {
+			return tls.Loop, nil
 		}
 	case "frame":
-		if ec.FrameTimeline != nil {
-			return ec.FrameTimeline, nil
+		if tls.Frame != nil {
+			return tls.Frame, nil
 		}
 	case "transport":
-		if ec.TransportTimeline != nil {
-			return ec.TransportTimeline, nil
+		if tls.Transport != nil {
+			return tls.Transport, nil
 		}
 	case "step":
-		if ec.StepTimeline != nil {
-			return ec.StepTimeline, nil
+		if tls.Step != nil {
+			return tls.Step, nil
 		}
 	}
 	return nil, fmt.Errorf("timeline %q does not exist", name)

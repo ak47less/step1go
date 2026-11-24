@@ -216,6 +216,8 @@ func (inst *innerMainClock) init(ac *ApplicationContext) {
 		return
 	}
 
+	tls := &ac.EngineContext.Timelines
+
 	cc = new(innerClockContext)
 	cc.observers = make(map[ClockObserverID]*ClockObserver)
 	cc.channels = make(map[ClockChannelID]*ClockChannel)
@@ -224,8 +226,8 @@ func (inst *innerMainClock) init(ac *ApplicationContext) {
 	cc.bufferLength = 3
 	cc.context = ac
 	cc.clock = inst
-	cc.timelineForEngine = ac.EngineContext.EngineTimeline
-	cc.timelineForDocument = ac.EngineContext.DocumentTimeline
+	cc.timelineForEngine = tls.Engine
+	cc.timelineForDocument = tls.Document
 
 	inst.innerAddChannel(cc, ClockUnitStep, true, 4)
 	inst.innerAddChannel(cc, ClockUnitStep, false, 3)
@@ -250,6 +252,7 @@ func (inst *innerMainClock) innerAddChannel(cc *innerClockContext, unit ClockUni
 	}
 
 	ec := cc.context.EngineContext
+	tls := &ec.Timelines
 
 	switch unit {
 	case ClockUnitFrame:
@@ -258,14 +261,14 @@ func (inst *innerMainClock) innerAddChannel(cc *innerClockContext, unit ClockUni
 		} else {
 			chl.ccid = CCID_frame_now
 		}
-		chl.timeline = ec.FrameTimeline
+		chl.timeline = tls.Frame
 	case ClockUnitStep:
 		if preload {
 			chl.ccid = CCID_step_preload
 		} else {
 			chl.ccid = CCID_step_now
 		}
-		chl.timeline = ec.StepTimeline
+		chl.timeline = tls.Step
 	}
 
 	cc.channels[chl.ccid] = chl
@@ -307,16 +310,19 @@ func (inst *innerMainClock) innerFetchNow() AbsolutePosition {
 
 	cc := inst.cc
 	ac := cc.context
-	stop_at := ac.TransportContext.StopAt
+	ec := ac.EngineContext
+	stop_at := ec.Positions.StopAt
 
 	if stop_at != nil {
 		return stop_at.Absolute()
 	}
 
-	ctime := ac.EngineContext.AudioContext.GetCurrentTime()
+	ctime := ec.AudioContext.GetCurrentTime()
+	tls := &ec.Timelines
+
 	var current RelativePosition
 	current.Pos = ctime
-	current.Ref = ac.EngineContext.EngineTimeline
+	current.Ref = tls.Engine
 
 	return current.Absolute()
 }

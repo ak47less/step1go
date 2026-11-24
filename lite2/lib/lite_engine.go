@@ -7,6 +7,26 @@ import (
 	"github.com/ak47less/step1go/lite2/core"
 )
 
+type Timelines struct {
+	Frame     *core.Timeline
+	Loop      *core.Timeline
+	Engine    *core.Timeline
+	Document  *core.Timeline
+	Step      *core.Timeline
+	Root      *core.Timeline
+	Transport *core.Timeline
+}
+
+type Positions struct {
+	Current        AbsolutePosition
+	Preload        AbsolutePosition
+	SelectionBegin AbsolutePosition
+	SelectionEnd   AbsolutePosition
+
+	Raw    *RelativePosition
+	StopAt *RelativePosition
+}
+
 type EngineContext struct {
 	AC *ApplicationContext
 
@@ -19,13 +39,9 @@ type EngineContext struct {
 	Instrument       Instrument
 	InstrumentHolder InstrumentHolder
 
-	FrameTimeline     *core.Timeline
-	LoopTimeline      *core.Timeline
-	EngineTimeline    *core.Timeline
-	DocumentTimeline  *core.Timeline
-	StepTimeline      *core.Timeline
-	RootTimeline      *core.Timeline
-	TransportTimeline *core.Timeline
+	Positions Positions
+
+	Timelines Timelines
 
 	Starting bool
 	Started  bool
@@ -35,12 +51,76 @@ type EngineContext struct {
 
 type Engine interface {
 	GetEngineContext() *EngineContext
+
+	GetRawPosition(dst *RelativePosition)
+
+	Start() error
+
+	Stop() error
+
+	Restart() error
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 type DefaultEngine struct {
 	context *EngineContext
+}
+
+// GetRawPosition implements [Engine].
+func (inst *DefaultEngine) GetRawPosition(dst *RelativePosition) {
+
+	if inst == nil || dst == nil {
+		return
+	}
+
+	ec := inst.context
+
+	dst.Pos = ec.AudioContext.GetCurrentTime()
+	dst.Ref = ec.Timelines.Engine
+}
+
+// Restart implements [Engine].
+func (inst *DefaultEngine) Restart() error {
+
+	inst.Stop()
+
+	ctx := inst.context
+	ctx.Starting = false
+	ctx.Started = false
+	ctx.Stopping = false
+	ctx.Stopped = false
+
+	return inst.Start()
+}
+
+func (inst *DefaultEngine) innerStart() error {
+
+	ec := inst.context
+	ec.Starting = true
+
+	audio := ec.AudioContext
+	audio.Resume()
+
+	return nil
+}
+
+func (inst *DefaultEngine) innerStop() error {
+
+	ec := inst.context
+	ec.Stopping = true
+
+	return nil
+}
+
+// Start implements [Engine].
+func (inst *DefaultEngine) Start() error {
+	return inst.innerStart()
+}
+
+// Stop implements [Engine].
+func (inst *DefaultEngine) Stop() error {
+	return inst.innerStop()
 }
 
 // GetEngineContext implements [Engine].
@@ -55,6 +135,7 @@ func (inst *DefaultEngine) GetLifeCycle() *LifeCycle {
 		OnCreate: inst.onCreate,
 		OnStart:  inst.onStart,
 		OnLoop:   inst.innerOnLoop,
+		OnStop:   inst.onStop,
 	}
 	return lc
 }
@@ -77,12 +158,11 @@ func (inst *DefaultEngine) onCreate() error {
 }
 
 func (inst *DefaultEngine) onStart() error {
+	return inst.innerStart()
+}
 
-	ec := inst.context
-	audio := ec.AudioContext
-	audio.Resume()
-
-	return nil
+func (inst *DefaultEngine) onStop() error {
+	return inst.innerStop()
 }
 
 func (inst *DefaultEngine) innerOnLoop() error {
@@ -131,6 +211,7 @@ func (inst *DefaultEngine) innerLoadDriver() error {
 func (inst *DefaultEngine) innerInitTimelines() {
 
 	ec := inst.context
+	tls := &ec.Timelines
 
 	tl_eng := &core.Timeline{
 		Type: core.TimelineTypeEngine,
@@ -175,13 +256,13 @@ func (inst *DefaultEngine) innerInitTimelines() {
 	tl_step.Parent = tl_doc
 	tl_root.Parent = nil
 
-	ec.DocumentTimeline = tl_doc
-	ec.EngineTimeline = tl_eng
-	ec.FrameTimeline = tl_frame
-	ec.LoopTimeline = tl_loop
-	ec.RootTimeline = tl_root
-	ec.StepTimeline = tl_step
-	ec.TransportTimeline = tl_trans
+	tls.Document = tl_doc
+	tls.Engine = tl_eng
+	tls.Frame = tl_frame
+	tls.Loop = tl_loop
+	tls.Root = tl_root
+	tls.Step = tl_step
+	tls.Transport = tl_trans
 
 }
 

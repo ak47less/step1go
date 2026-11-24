@@ -56,27 +56,32 @@ func (inst *DefaultActionController) NewContext() *ActionContext {
 
 // Pause implements [ActionController].
 func (inst *DefaultActionController) Pause(ctx *ActionContext) error {
-	panic("unimplemented")
+	tr := inst.context.Transport
+	return tr.Pause()
 }
 
 // Play implements [ActionController].
 func (inst *DefaultActionController) Play(ctx *ActionContext) error {
-	panic("unimplemented")
+	tr := inst.context.Transport
+	return tr.Play()
 }
 
 // Record implements [ActionController].
 func (inst *DefaultActionController) Record(ctx *ActionContext) error {
-	panic("unimplemented")
+	tr := inst.context.Transport
+	return tr.Record()
 }
 
 // RestartEngine implements [ActionController].
 func (inst *DefaultActionController) RestartEngine(ctx *ActionContext) error {
-	panic("unimplemented")
+	inst.StopEngine(ctx)
+	return inst.StartEngine(ctx)
 }
 
 // Resume implements [ActionController].
 func (inst *DefaultActionController) Resume(ctx *ActionContext) error {
-	panic("unimplemented")
+	tr := inst.context.Transport
+	return tr.Resume()
 }
 
 // Seek implements [ActionController].
@@ -86,17 +91,20 @@ func (inst *DefaultActionController) Seek(ctx *ActionContext, pos *RelativePosit
 
 // StartEngine implements [ActionController].
 func (inst *DefaultActionController) StartEngine(ctx *ActionContext) error {
-	panic("unimplemented")
+	engine := ctx.EC.Engine
+	return engine.Start()
 }
 
 // Stop implements [ActionController].
 func (inst *DefaultActionController) Stop(ctx *ActionContext) error {
-	panic("unimplemented")
+	tr := inst.context.Transport
+	return tr.Stop()
 }
 
 // StopEngine implements [ActionController].
 func (inst *DefaultActionController) StopEngine(ctx *ActionContext) error {
-	panic("unimplemented")
+	engine := ctx.EC.Engine
+	return engine.Stop()
 }
 
 // GetLifeCycle implements [Life].
@@ -109,11 +117,8 @@ func (inst *DefaultActionController) GetLifeCycle() *LifeCycle {
 }
 
 func (inst *DefaultActionController) innerOnInit(ac *ApplicationContext) error {
-
 	inst.context = ac
-
 	ac.ActionController = inst
-
 	return nil
 }
 
@@ -126,3 +131,4 @@ func (inst *DefaultActionController) _impl() (Life, ActionController) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// EOF

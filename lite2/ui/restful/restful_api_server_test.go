@@ -113,13 +113,16 @@ func newTestWebServer(t *testing.T) (*innerWebServer, *fakeActionController) {
 		Length: 60,
 	}
 	engineContext := &lib.EngineContext{
-		Started:           true,
-		DocumentTimeline:  document,
-		EngineTimeline:    &core.Timeline{Name: "@engine", Type: core.TimelineTypeEngine},
-		TransportTimeline: &core.Timeline{Name: "@transport", Type: core.TimelineTypeTransport},
-		StepTimeline:      &core.Timeline{Name: "@step", Type: core.TimelineTypeStep},
-		FrameTimeline:     &core.Timeline{Name: "@frame", Type: core.TimelineTypeFrame},
+		Started: true,
 	}
+
+	tls := &engineContext.Timelines
+	tls.Document = document
+	tls.Engine = &core.Timeline{Name: "@engine", Type: core.TimelineTypeEngine}
+	tls.Transport = &core.Timeline{Name: "@transport", Type: core.TimelineTypeTransport}
+	tls.Step = &core.Timeline{Name: "@step", Type: core.TimelineTypeStep}
+	tls.Frame = &core.Timeline{Name: "@frame", Type: core.TimelineTypeFrame}
+
 	transportContext := &lib.TransportContext{
 		Playing: true,
 	}
@@ -242,6 +245,10 @@ func TestSPAIsMountedAtRoot(t *testing.T) {
 		if !strings.Contains(response.Body.String(), "<!DOCTYPE html>") {
 			t.Fatalf("%s did not return index.html", target)
 		}
+		if !strings.Contains(response.Body.String(), "STEP1 Lite2") ||
+			!strings.Contains(response.Body.String(), "批量 Action") {
+			t.Fatalf("%s did not return the SPA application", target)
+		}
 	}
 
 	response := performRequest(handler, http.MethodGet, "/missing.js", "")
@@ -291,8 +298,11 @@ func TestStatusAndCommands(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("seek code = %d, body = %s", response.Code, response.Body.String())
 	}
+
+	doc_tline := controller.context.EC.Timelines.Document
+
 	if controller.seekTo == nil || float64(controller.seekTo.Pos) != 2.5 ||
-		controller.seekTo.Ref != controller.context.EC.DocumentTimeline {
+		controller.seekTo.Ref != doc_tline {
 		t.Fatalf("unexpected seek target: %+v", controller.seekTo)
 	}
 }

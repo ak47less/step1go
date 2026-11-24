@@ -1,8 +1,6 @@
 package lite2
 
-import (
-	"fmt"
-)
+import "fmt"
 
 const (
 	theModuleName     = "github.com/ak47less/step1go/lite2"
@@ -10,9 +8,25 @@ const (
 	theModuleRevision = 0
 )
 
-func GetModuleInfo() string {
+type ModuleInfo struct {
+	Name     string
+	Version  string
+	Revision int
+}
 
+func (inst *ModuleInfo) String() string {
+	if inst == nil {
+		return ""
+	}
 	const f = "[lite2.module name:'%s' version:'%s' rev:%d ]"
-	return fmt.Sprintf(f, theModuleName, theModuleVersion, theModuleRevision)
+	return fmt.Sprintf(f, inst.Name, inst.Version, inst.Revision)
+}
 
+func GetModuleInfo() *ModuleInfo {
+	i := &ModuleInfo{
+		Name:     theModuleName,
+		Version:  theModuleVersion,
+		Revision: theModuleRevision,
+	}
+	return i
 }
