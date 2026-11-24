@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ak47less/step1go/lite2/core"
 	"github.com/ak47less/step1go/lite2/lib"
 )
 
@@ -72,10 +73,16 @@ type trackListResource struct {
 }
 
 type cellResource struct {
-	Name       string `json:"name"`
-	BankIndex  int    `json:"bankIndex"`
-	StepIndex  int    `json:"stepIndex"`
-	TrackIndex int    `json:"trackIndex"`
+	Name       string            `json:"name"`
+	BankIndex  int               `json:"bankIndex"`
+	StepIndex  int               `json:"stepIndex"`
+	TrackIndex int               `json:"trackIndex"`
+	Note       *midiNoteResource `json:"note"`
+}
+
+type midiNoteResource struct {
+	Number   int `json:"number"`
+	Velocity int `json:"velocity"`
 }
 
 type cellListResource struct {
@@ -643,7 +650,12 @@ func (inst *innerWebServer) handleCells(w http.ResponseWriter, r *http.Request) 
 }
 
 func (inst *innerWebServer) handleCell(w http.ResponseWriter, r *http.Request) {
-	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
+	if !allowMethods(w, r, http.MethodGet, http.MethodHead, http.MethodPatch) {
+		return
+	}
+
+	if r.Method == http.MethodPatch {
+		inst.patchCell(w, r)
 		return
 	}
 
@@ -663,6 +675,79 @@ func (inst *innerWebServer) handleCell(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusNotFound, "NOT_FOUND", "cell not found", map[string]any{"name": name})
 		return
 	}
+	writeJSON(w, http.StatusOK, makeCellResource(cell))
+}
+
+type cellPatch struct {
+	Note json.RawMessage `json:"note"`
+}
+
+type midiNotePatch struct {
+	Number   *int `json:"number"`
+	Velocity *int `json:"velocity"`
+}
+
+func (inst *innerWebServer) patchCell(w http.ResponseWriter, r *http.Request) {
+	var patch cellPatch
+	if err := decodeJSON(w, r, &patch); err != nil {
+		writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", err.Error(), nil)
+		return
+	}
+	if len(patch.Note) == 0 {
+		writeAPIError(w, http.StatusBadRequest, "INVALID_PARAMETER",
+			"note is required", map[string]any{"field": "note"})
+		return
+	}
+
+	var note *lib.MidiNote
+	if !bytes.Equal(bytes.TrimSpace(patch.Note), []byte("null")) {
+		var request midiNotePatch
+		if err := decodeRawJSON(patch.Note, &request); err != nil {
+			writeAPIError(w, http.StatusBadRequest, "INVALID_JSON", err.Error(), nil)
+			return
+		}
+		switch {
+		case request.Number == nil:
+			writeAPIError(w, http.StatusBadRequest, "INVALID_PARAMETER",
+				"note.number is required", map[string]any{"field": "note.number"})
+			return
+		case *request.Number < 0 || *request.Number > 127:
+			writeAPIError(w, http.StatusBadRequest, "INVALID_PARAMETER",
+				"note.number must be between 0 and 127", map[string]any{"field": "note.number"})
+			return
+		case request.Velocity == nil:
+			writeAPIError(w, http.StatusBadRequest, "INVALID_PARAMETER",
+				"note.velocity is required", map[string]any{"field": "note.velocity"})
+			return
+		case *request.Velocity < 0 || *request.Velocity > 127:
+			writeAPIError(w, http.StatusBadRequest, "INVALID_PARAMETER",
+				"note.velocity must be between 0 and 127", map[string]any{"field": "note.velocity"})
+			return
+		}
+		note = &lib.MidiNote{
+			Number:   core.MidiNoteNumber(*request.Number),
+			Velocity: core.MidiNoteVelocity(*request.Velocity),
+		}
+	}
+
+	inst.cubeMu.Lock()
+	defer inst.cubeMu.Unlock()
+
+	cube, ok := inst.cube()
+	if !ok {
+		writeAPIError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE",
+			"sequencer is not initialized", nil)
+		return
+	}
+
+	name := lib.CellName(r.PathValue("cellName"))
+	cell, err := cube.Cells.GetCellByName(name)
+	if err != nil {
+		writeAPIError(w, http.StatusNotFound, "NOT_FOUND", "cell not found", map[string]any{"name": name})
+		return
+	}
+
+	cell.Note = note
 	writeJSON(w, http.StatusOK, makeCellResource(cell))
 }
 
@@ -885,12 +970,19 @@ func makeCellResource(cell *lib.Cell) cellResource {
 	if cell == nil {
 		return cellResource{}
 	}
-	return cellResource{
+	resource := cellResource{
 		Name:       string(cell.Name),
 		BankIndex:  int(cell.BankIndex),
 		StepIndex:  int(cell.StepIndex),
 		TrackIndex: int(cell.TrackIndex),
 	}
+	if cell.Note != nil {
+		resource.Note = &midiNoteResource{
+			Number:   int(cell.Note.Number),
+			Velocity: int(cell.Note.Velocity),
+		}
+	}
+	return resource
 }
 
 type batchActionRequest struct {

@@ -361,6 +361,134 @@ func TestCubeResourcesAndPatch(t *testing.T) {
 	}
 }
 
+func TestCellNotePatch(t *testing.T) {
+	web, _ := newTestWebServer(t)
+	handler := web.handler()
+
+	response := performRequest(handler, http.MethodGet, "/api/v1/cells/b1_s0_t1", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("cell code = %d", response.Code)
+	}
+	var cell cellResource
+	if err := json.Unmarshal(response.Body.Bytes(), &cell); err != nil {
+		t.Fatalf("decode cell: %v", err)
+	}
+	if cell.Note != nil {
+		t.Fatalf("initial note = %+v, want null", cell.Note)
+	}
+
+	response = performRequest(handler, http.MethodPatch, "/api/v1/cells/b1_s0_t1",
+		`{"note":{"number":60,"velocity":100}}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("patch cell note code = %d, body = %s", response.Code, response.Body.String())
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &cell); err != nil {
+		t.Fatalf("decode patched cell: %v", err)
+	}
+	if cell.Note == nil || cell.Note.Number != 60 || cell.Note.Velocity != 100 {
+		t.Fatalf("patched note = %+v", cell.Note)
+	}
+
+	response = performRequest(handler, http.MethodGet, "/api/v1/cells/b1_s0_t1", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("get patched cell code = %d", response.Code)
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &cell); err != nil {
+		t.Fatalf("decode fetched cell: %v", err)
+	}
+	if cell.Note == nil || cell.Note.Number != 60 || cell.Note.Velocity != 100 {
+		t.Fatalf("fetched note = %+v", cell.Note)
+	}
+
+	response = performRequest(handler, http.MethodPatch, "/api/v1/cells/b1_s0_t1",
+		`{"note":null}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("clear cell note code = %d, body = %s", response.Code, response.Body.String())
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &cell); err != nil {
+		t.Fatalf("decode cleared cell: %v", err)
+	}
+	if cell.Note != nil {
+		t.Fatalf("cleared note = %+v, want null", cell.Note)
+	}
+
+	tests := []struct {
+		name   string
+		target string
+		body   string
+		status int
+		code   string
+	}{
+		{
+			name:   "missing note",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_PARAMETER",
+		},
+		{
+			name:   "missing number",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"velocity":100}}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_PARAMETER",
+		},
+		{
+			name:   "missing velocity",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"number":60}}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_PARAMETER",
+		},
+		{
+			name:   "number out of range",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"number":128,"velocity":100}}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_PARAMETER",
+		},
+		{
+			name:   "velocity out of range",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"number":60,"velocity":-1}}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_PARAMETER",
+		},
+		{
+			name:   "unknown note field",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"number":60,"velocity":100,"channel":1}}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_JSON",
+		},
+		{
+			name:   "unknown cell field",
+			target: "/api/v1/cells/b1_s0_t1",
+			body:   `{"note":{"number":60,"velocity":100},"cc":1}`,
+			status: http.StatusBadRequest,
+			code:   "INVALID_JSON",
+		},
+		{
+			name:   "cell not found",
+			target: "/api/v1/cells/b9_s9_t9",
+			body:   `{"note":{"number":60,"velocity":100}}`,
+			status: http.StatusNotFound,
+			code:   "NOT_FOUND",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := performRequest(handler, http.MethodPatch, test.target, test.body)
+			if response.Code != test.status {
+				t.Fatalf("code = %d, want %d, body = %s", response.Code, test.status, response.Body.String())
+			}
+			if code := decodeErrorCode(t, response); code != test.code {
+				t.Fatalf("error code = %q, want %q", code, test.code)
+			}
+		})
+	}
+}
+
 func TestBatchActions(t *testing.T) {
 	web, controller := newTestWebServer(t)
 	handler := web.handler()
