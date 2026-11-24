@@ -82,6 +82,7 @@
 | `PATCH` | `/tracks/{trackIndex}` | 更新 track 的混音和显示参数 |
 | `GET` | `/cells` | 列出或筛选 cell |
 | `GET` | `/cells/{cellName}` | 按名称查询 cell |
+| `PATCH` | `/cells/{cellName}` | 设置或清除 cell 的 MIDI note |
 | `POST` | `/actions` | 批量执行兼容 action |
 
 ## 3. 服务状态
@@ -423,13 +424,18 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
       "name": "b0_s3_t0",
       "bankIndex": 0,
       "stepIndex": 3,
-      "trackIndex": 0
+      "trackIndex": 0,
+      "note": null
     },
     {
       "name": "b0_s3_t1",
       "bankIndex": 0,
       "stepIndex": 3,
-      "trackIndex": 1
+      "trackIndex": 1,
+      "note": {
+        "number": 60,
+        "velocity": 100
+      }
     }
   ]
 }
@@ -442,12 +448,43 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
   "name": "b0_s3_t2",
   "bankIndex": 0,
   "stepIndex": 3,
-  "trackIndex": 2
+  "trackIndex": 2,
+  "note": {
+    "number": 60,
+    "velocity": 100
+  }
 }
 ```
 
-当前 `ComplexCell` 尚无音符等内容字段，因此本版不定义 cell 内容写入接口。音符和
-控制器数据应作为后续 `PATCH /cells/{cellName}` 的扩展字段加入，并补充版本说明。
+`note` 为 `null` 表示该 cell 尚未设置音符；非空时是 MIDI note 对象：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `number` | integer | MIDI 音高编号，范围为 `0..127` |
+| `velocity` | integer | MIDI 力度，范围为 `0..127` |
+
+`PATCH /cells/{cellName}` 用于设置或清除 `cell.note`：
+
+```json
+{
+  "note": {
+    "number": 60,
+    "velocity": 100
+  }
+}
+```
+
+`note` 字段必须提供；`number` 和 `velocity` 均为必填整数，缺失或超出范围时返回
+`400 Bad Request`。提交 note 对象会整体替换当前值。传 `null` 可清除 note：
+
+```json
+{
+  "note": null
+}
+```
+
+成功响应返回更新后的完整 cell 对象，结构同 `GET /cells/{cellName}`；cell 名称不存在
+时返回 `404 Not Found`。当前接口仅支持编辑 `note`，不接受其他 cell 内容字段。
 
 ## 7. 批量 Action 接口（兼容协议）
 
@@ -601,12 +638,20 @@ curl -X PATCH http://localhost:8080/api/v1/tracks/0 \
   -d '{"label":"Bass","enabled":true,"gainDb":-6}'
 ```
 
+设置 cell 的 MIDI note：
+
+```bash
+curl -X PATCH http://localhost:8080/api/v1/cells/b0_s3_t2 \
+  -H 'Content-Type: application/json' \
+  -d '{"note":{"number":60,"velocity":100}}'
+```
+
 ## 9. 后续扩展
 
 以下能力已有底层抽象，但当前实现尚未完整提供，建议作为后续 API 版本补充：
 
 - 乐器注册表查询：`GET /instruments`。
 - 为 track 绑定、替换或卸载乐器。
-- cell 内容读写，包括 MIDI note、CC 和事件时间。
+- cell 的 CC 和事件时间读写。
 - 工程文件、配置和会话的导入导出。
 - 基于 WebSocket 或 Server-Sent Events 的状态推送，避免前端频繁轮询 `/status`。
