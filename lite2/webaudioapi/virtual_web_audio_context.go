@@ -266,11 +266,25 @@ type PeriodicWave interface {
 	GetImag() []float64
 }
 
+// AudioProcessingEvent contains the buffers and playback time associated with
+// one audioprocess event.
+type AudioProcessingEvent interface {
+	GetPlaybackTime() Seconds
+	GetInputBuffer() AudioBuffer
+	GetOutputBuffer() AudioBuffer
+}
+
+// AudioProcessHandler processes one AudioProcessingEvent. Implementations
+// write the resulting audio to GetOutputBuffer.
+type AudioProcessHandler func(event AudioProcessingEvent)
+
 // ScriptProcessorNode allows application code to process audio buffers.
 type ScriptProcessorNode interface {
 	AudioNode
 
 	GetBufferSize() int
+	GetOnAudioProcess() AudioProcessHandler
+	SetOnAudioProcess(handler AudioProcessHandler)
 }
 
 // BaseAudioContext contains the methods shared by AudioContext and

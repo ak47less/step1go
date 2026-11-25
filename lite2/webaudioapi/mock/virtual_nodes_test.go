@@ -89,3 +89,44 @@ func TestMockAdditionalNodeDefaults(t *testing.T) {
 		t.Fatalf("script processor buffer size = %d, want %d", got, mockDefaultScriptProcessorCapacity)
 	}
 }
+
+func TestMockScriptProcessorAudioProcessHandler(t *testing.T) {
+	ctx := newInnerMockAudioContext()
+	defer ctx.Close()
+
+	processor := ctx.CreateScriptProcessor()
+	if handler := processor.GetOnAudioProcess(); handler != nil {
+		t.Fatal("new script processor should not have an audioprocess handler")
+	}
+
+	called := false
+	processor.SetOnAudioProcess(func(event webaudioapi.AudioProcessingEvent) {
+		called = true
+		if event.GetPlaybackTime() != 1.5 {
+			t.Fatalf("playback time = %f, want 1.5", event.GetPlaybackTime())
+		}
+		if event.GetInputBuffer() == nil || event.GetOutputBuffer() == nil {
+			t.Fatal("audioprocess event buffers should not be nil")
+		}
+	})
+	handler := processor.GetOnAudioProcess()
+	if handler == nil {
+		t.Fatal("SetOnAudioProcess did not store the handler")
+	}
+
+	input := ctx.CreateBuffer(2, 4, ctx.GetSampleRate())
+	output := ctx.CreateBuffer(2, 4, ctx.GetSampleRate())
+	handler(&innerMockAudioProcessingEvent{
+		playbackTime: 1.5,
+		inputBuffer:  input,
+		outputBuffer: output,
+	})
+	if !called {
+		t.Fatal("stored audioprocess handler was not called")
+	}
+
+	processor.SetOnAudioProcess(nil)
+	if handler := processor.GetOnAudioProcess(); handler != nil {
+		t.Fatal("SetOnAudioProcess(nil) did not clear the handler")
+	}
+}

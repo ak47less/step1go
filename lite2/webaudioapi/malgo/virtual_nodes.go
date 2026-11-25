@@ -40,6 +40,7 @@ var (
 	_ webaudioapi.WaveShaperNode         = new(malgoWaveShaperNode)
 	_ webaudioapi.PeriodicWave           = new(malgoPeriodicWave)
 	_ webaudioapi.ScriptProcessorNode    = new(malgoScriptProcessorNode)
+	_ webaudioapi.AudioProcessingEvent   = new(malgoAudioProcessingEvent)
 )
 
 type malgoBiquadState struct {
@@ -834,11 +835,48 @@ func (inst *malgoPeriodicWave) GetImag() []float64 {
 
 type malgoScriptProcessorNode struct {
 	malgoAudioNode
-	bufferSize int
+
+	mu             sync.Mutex
+	bufferSize     int
+	onAudioProcess webaudioapi.AudioProcessHandler
+	inputBuffers   [][]webaudioapi.SampleValue
+	inputPosition  int
+	outputBuffers  [][]webaudioapi.SampleValue
+	outputPosition int
 }
 
 func (inst *malgoScriptProcessorNode) GetBufferSize() int {
 	return inst.bufferSize
+}
+
+func (inst *malgoScriptProcessorNode) GetOnAudioProcess() webaudioapi.AudioProcessHandler {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.onAudioProcess
+}
+
+func (inst *malgoScriptProcessorNode) SetOnAudioProcess(handler webaudioapi.AudioProcessHandler) {
+	inst.mu.Lock()
+	inst.onAudioProcess = handler
+	inst.mu.Unlock()
+}
+
+type malgoAudioProcessingEvent struct {
+	playbackTime webaudioapi.Seconds
+	inputBuffer  webaudioapi.AudioBuffer
+	outputBuffer webaudioapi.AudioBuffer
+}
+
+func (inst *malgoAudioProcessingEvent) GetPlaybackTime() webaudioapi.Seconds {
+	return inst.playbackTime
+}
+
+func (inst *malgoAudioProcessingEvent) GetInputBuffer() webaudioapi.AudioBuffer {
+	return inst.inputBuffer
+}
+
+func (inst *malgoAudioProcessingEvent) GetOutputBuffer() webaudioapi.AudioBuffer {
+	return inst.outputBuffer
 }
 
 func (inst *malgoScriptProcessorNode) renderSignal(
@@ -848,11 +886,80 @@ func (inst *malgoScriptProcessorNode) renderSignal(
 	visiting map[webaudioapi.AudioNode]bool,
 ) [][]webaudioapi.SampleValue {
 	inputs := inst.ctx.renderInputs(inst.owner, startTime, frameCount, depth+1, visiting)
-	channels := signalChannelCount(inputs)
-	if channels == 0 {
-		channels = 1
+	channels := malgoDefaultChannelCount
+	input := mixSignals(inputs, frameCount, channels)
+	output := make([][]webaudioapi.SampleValue, channels)
+	for channel := range output {
+		output[channel] = make([]webaudioapi.SampleValue, frameCount)
 	}
-	return mixSignals(inputs, frameCount, channels)
+
+	for frame := 0; frame < frameCount; frame++ {
+		inst.mu.Lock()
+		if inst.outputPosition < inst.bufferSize &&
+			len(inst.outputBuffers) == channels &&
+			len(inst.outputBuffers[0]) > inst.outputPosition {
+			for channel := 0; channel < channels; channel++ {
+				output[channel][frame] = inst.outputBuffers[channel][inst.outputPosition]
+			}
+			inst.outputPosition++
+		}
+
+		if len(inst.inputBuffers) != channels {
+			inst.inputBuffers = makeScriptProcessorBuffer(channels, inst.bufferSize)
+			inst.inputPosition = 0
+		}
+		if inst.inputPosition >= inst.bufferSize {
+			inst.inputBuffers = makeScriptProcessorBuffer(channels, inst.bufferSize)
+			inst.inputPosition = 0
+		}
+		for channel := 0; channel < channels; channel++ {
+			inst.inputBuffers[channel][inst.inputPosition] = input[channel][frame]
+		}
+		inst.inputPosition++
+
+		var event webaudioapi.AudioProcessingEvent
+		var handler webaudioapi.AudioProcessHandler
+		if inst.inputPosition == inst.bufferSize {
+			eventInput := &malgoAudioBuffer{
+				sampleRate: inst.ctx.sampleRate,
+				channels:   inst.inputBuffers,
+			}
+			eventOutput := &malgoAudioBuffer{
+				sampleRate: inst.ctx.sampleRate,
+				channels:   makeScriptProcessorBuffer(channels, inst.bufferSize),
+			}
+			event = &malgoAudioProcessingEvent{
+				playbackTime: startTime + webaudioapi.Seconds(float64(frame+1)/float64(inst.ctx.sampleRate)),
+				inputBuffer:  eventInput,
+				outputBuffer: eventOutput,
+			}
+			handler = inst.onAudioProcess
+			inst.inputBuffers = nil
+			inst.inputPosition = 0
+		}
+		inst.mu.Unlock()
+
+		if event == nil {
+			continue
+		}
+		if handler != nil {
+			handler(event)
+		}
+		processed := event.GetOutputBuffer().(*malgoAudioBuffer)
+		inst.mu.Lock()
+		inst.outputBuffers = processed.channels
+		inst.outputPosition = 0
+		inst.mu.Unlock()
+	}
+	return output
+}
+
+func makeScriptProcessorBuffer(channels int, length int) [][]webaudioapi.SampleValue {
+	buffers := make([][]webaudioapi.SampleValue, channels)
+	for channel := range buffers {
+		buffers[channel] = make([]webaudioapi.SampleValue, length)
+	}
+	return buffers
 }
 
 // CreateBiquadFilter implements [webaudioapi.BaseAudioContext].

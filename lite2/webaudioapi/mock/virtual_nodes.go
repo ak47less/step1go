@@ -39,6 +39,7 @@ var (
 	_ webaudioapi.WaveShaperNode         = new(innerMockWaveShaperNode)
 	_ webaudioapi.PeriodicWave           = new(innerMockPeriodicWave)
 	_ webaudioapi.ScriptProcessorNode    = new(innerMockScriptProcessorNode)
+	_ webaudioapi.AudioProcessingEvent   = new(innerMockAudioProcessingEvent)
 )
 
 type innerMockBiquadFilterNode struct {
@@ -465,11 +466,44 @@ func (inst *innerMockPeriodicWave) GetImag() []float64 {
 
 type innerMockScriptProcessorNode struct {
 	innerMockAudioNode
-	bufferSize int
+
+	mu             sync.RWMutex
+	bufferSize     int
+	onAudioProcess webaudioapi.AudioProcessHandler
 }
 
 func (inst *innerMockScriptProcessorNode) GetBufferSize() int {
 	return inst.bufferSize
+}
+
+func (inst *innerMockScriptProcessorNode) GetOnAudioProcess() webaudioapi.AudioProcessHandler {
+	inst.mu.RLock()
+	defer inst.mu.RUnlock()
+	return inst.onAudioProcess
+}
+
+func (inst *innerMockScriptProcessorNode) SetOnAudioProcess(handler webaudioapi.AudioProcessHandler) {
+	inst.mu.Lock()
+	inst.onAudioProcess = handler
+	inst.mu.Unlock()
+}
+
+type innerMockAudioProcessingEvent struct {
+	playbackTime webaudioapi.Seconds
+	inputBuffer  webaudioapi.AudioBuffer
+	outputBuffer webaudioapi.AudioBuffer
+}
+
+func (inst *innerMockAudioProcessingEvent) GetPlaybackTime() webaudioapi.Seconds {
+	return inst.playbackTime
+}
+
+func (inst *innerMockAudioProcessingEvent) GetInputBuffer() webaudioapi.AudioBuffer {
+	return inst.inputBuffer
+}
+
+func (inst *innerMockAudioProcessingEvent) GetOutputBuffer() webaudioapi.AudioBuffer {
+	return inst.outputBuffer
 }
 
 // CreateBiquadFilter implements [webaudioapi.BaseAudioContext].
