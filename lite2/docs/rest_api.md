@@ -3,9 +3,9 @@
 本文档定义 Web 前端与 STEP1 Lite2 后端之间的 HTTP/JSON 接口约定，接口范围来自当前
 `lib` 中的引擎、走带、状态、Cube（bank/step/track/cell）和 MIDI 相关能力。
 
-> 实现状态：`ui/restful` 已按本文提供基于标准库 `net/http` 的 HTTP 服务，服务器
-> 由 `WebServerConfig` 控制启用、主机和端口。引擎与走带命令最终由
-> `ActionController` 的后端实现执行。
+> 实现状态：除第 7 节 MIDI 事件接口外，`ui/restful` 已按本文提供基于标准库
+> `net/http` 的 HTTP 服务，服务器由 `WebServerConfig` 控制启用、主机和端口。
+> 引擎与走带命令最终由 `ActionController` 的后端实现执行。
 
 ## 1. 通用约定
 
@@ -83,7 +83,7 @@
 | `GET` | `/cells` | 列出或筛选 cell |
 | `GET` | `/cells/{cellName}` | 按名称查询 cell |
 | `PATCH` | `/cells/{cellName}` | 设置或清除 cell 的 MIDI note |
-| `POST` | `/midi/events` | 批量发送MIDI事件到后端 |
+| `POST` | `/midi/events` | 批量发送 MIDI 事件到后端 |
 | `POST` | `/actions` | 批量执行兼容 action |
 
 ## 3. 服务状态
@@ -487,12 +487,120 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
 成功响应返回更新后的完整 cell 对象，结构同 `GET /cells/{cellName}`；cell 名称不存在
 时返回 `404 Not Found`。当前接口仅支持编辑 `note`，不接受其他 cell 内容字段。
 
-## 7. 批量 Action 接口（兼容协议）
+## 7. MIDI 事件接口
+
+### 7.1 批量发送 MIDI 事件
+
+`POST /midi/events`
+
+> 实现状态：本节为接口协议草案，`ui/restful` 路由尚未接入。
+
+批量发送 MIDI 事件到当前引擎的输入乐器。请求中的事件按数组顺序处理；负的
+`time` 表示立即触发，非负 `time` 表示在时间轴上的绝对时刻触发，单位为秒。
+建议使用 `-1` 表示立即触发。
+
+```json
+{
+  "events": [
+    {
+      "type": "note_on",
+      "time": -1,
+      "channel": 0,
+      "note": {
+        "number": 60,
+        "velocity": 100
+      }
+    },
+    {
+      "type": "note_off",
+      "time": 0.5,
+      "channel": 0,
+      "note": {
+        "number": 60,
+        "velocity": 0
+      }
+    },
+    {
+      "type": "cc",
+      "time": -1,
+      "channel": 1,
+      "cc": {
+        "key": 74,
+        "value": 127
+      }
+    }
+  ]
+}
+```
+
+请求字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `events` | array | 是 | 事件数组，至少包含一个事件 |
+| `events[].type` | string | 是 | `note_on`、`note_off` 或 `cc` |
+| `events[].time` | number | 否 | 触发时刻，单位为秒；省略或为负数时立即触发 |
+| `events[].channel` | integer | 是 | MIDI 通道，范围为 `0..15` |
+| `events[].note` | object | 条件必填 | `note_on` 和 `note_off` 事件必须提供 |
+| `events[].cc` | object | 条件必填 | `cc` 事件必须提供 |
+
+`note` 对象：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `number` | integer | 是 | MIDI 音高编号，范围为 `0..127` |
+| `velocity` | integer | 是 | MIDI 力度，范围为 `0..127` |
+
+`cc` 对象：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `key` | integer | 是 | MIDI 控制器编号，范围为 `0..127` |
+| `value` | integer | 是 | 控制器值，范围为 `0..127` |
+
+每个事件只能提供与其 `type` 对应的数据：`note_on` 和 `note_off` 提供 `note`，
+`cc` 提供 `cc`。事件缺少必要数据、字段类型错误、数值越界或包含未知字段时返回
+`400 Bad Request`。
+
+服务会先校验整批请求，校验通过后再按顺序交给乐器。引擎未启动或当前状态不允许
+接收 MIDI 事件时返回 `409 Conflict`；乐器不可用返回 `503 Service Unavailable`；
+乐器拒绝事件返回 `422 Unprocessable Entity`，错误码为 `MIDI_DISPATCH_FAILED`。
+
+成功响应：
+
+```json
+{
+  "accepted": 3,
+  "results": [
+    {
+      "index": 0,
+      "type": "note_on",
+      "ok": true
+    },
+    {
+      "index": 1,
+      "type": "note_off",
+      "ok": true
+    },
+    {
+      "index": 2,
+      "type": "cc",
+      "ok": true
+    }
+  ]
+}
+```
+
+`accepted` 为成功提交给乐器的事件数量；`results` 与请求中的 `events` 一一对应。
+调用方可以一次发送成对的 `note_on`/`note_off`，但服务不会自动生成 `note_off`
+事件，也不会在批次结束后停止音符。
+
+## 8. 批量 Action 接口（兼容协议）
 
 批量 action 沿用现有的 `actions` 数组和 action 名称，适合前端在一次交互中同时执行
 多个操作和状态查询。本草案补充统一的 `results` 字段，并保留顶层 `status` 对象。
 
-### 7.1 请求
+### 8.1 请求
 
 `POST /actions`
 
@@ -533,7 +641,7 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
 }
 ```
 
-### 7.2 Action 表
+### 8.2 Action 表
 
 | `name` | `params` | 功能 |
 | --- | --- | --- |
@@ -560,7 +668,7 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
 }
 ```
 
-### 7.3 响应
+### 8.3 响应
 
 ```json
 {
@@ -611,7 +719,7 @@ HTTP 状态码，并在 `results` 末尾包含失败项：
 }
 ```
 
-## 8. 请求示例
+## 9. 请求示例
 
 启动引擎并开始播放：
 
@@ -647,7 +755,30 @@ curl -X PATCH http://localhost:8080/api/v1/cells/b0_s3_t2 \
   -d '{"note":{"number":60,"velocity":100}}'
 ```
 
-## 9. 后续扩展
+批量发送 MIDI 事件：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/midi/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "events": [
+      {
+        "type": "note_on",
+        "time": -1,
+        "channel": 0,
+        "note": {"number": 60, "velocity": 100}
+      },
+      {
+        "type": "note_off",
+        "time": -1,
+        "channel": 0,
+        "note": {"number": 60, "velocity": 0}
+      }
+    ]
+  }'
+```
+
+## 10. 后续扩展
 
 以下能力已有底层抽象，但当前实现尚未完整提供，建议作为后续 API 版本补充：
 
