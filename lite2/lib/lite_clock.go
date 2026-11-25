@@ -473,6 +473,24 @@ func (inst *innerClockEventDispatcher) innerDoX(c *innerClockContext) error {
 	return nil
 }
 
+// innerDoUpdateContextPositions 更新上下文中的实时位置
+func (inst *innerClockEventDispatcher) innerDoUpdateContextPositions(c *innerClockContext) error {
+
+	appctx := c.context
+	posset := &appctx.EngineContext.Positions
+	now := c.now
+	pre := c.preload
+
+	tline := appctx.EngineContext.Timelines.Engine
+	raw := now.Relative(tline, nil)
+
+	posset.Raw = raw
+	posset.Preload = pre
+	posset.Current = now
+
+	return nil
+}
+
 // func (inst *innerClockEventDispatcher) innerInitEventForChannel(cc *innerClockContext, chl *ClockChannel, event *ClockEvent) error {
 
 // 	tl := chl.timeline
@@ -548,8 +566,10 @@ func (inst *innerClockEventDispatcher) innerGetProcedures() []func(c *innerClock
 
 		list = append(list, inst.innerDoCheck)
 		list = append(list, inst.innerDoPrepare)
-		list = append(list, inst.innerDoX)
+		list = append(list, inst.innerDoUpdateContextPositions)
 		list = append(list, inst.innerDoDispatchToAllChannels)
+
+		// list = append(list, inst.innerDoX)
 
 		inst.procedures = list
 	}

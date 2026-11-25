@@ -1,7 +1,11 @@
 package lib
 
+import "github.com/ak47less/step1go/lite2/webaudioapi"
+
 type Instrument interface {
 	Dispatch(events ...*MidiEvent) error
+
+	GetOutput() webaudioapi.AudioNode
 }
 
 type InstrumentHolder interface {

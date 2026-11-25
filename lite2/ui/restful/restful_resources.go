@@ -568,6 +568,8 @@ func (inst *innerWebServer) patchTrack(w http.ResponseWriter, r *http.Request, i
 	}
 
 	track := cube.Tracks[index]
+	mixchl := track.MixerChannel
+
 	if patch.Name != nil {
 		track.Name = lib.TrackName(*patch.Name)
 	}
@@ -583,18 +585,22 @@ func (inst *innerWebServer) patchTrack(w http.ResponseWriter, r *http.Request, i
 	if patch.Enabled != nil {
 		track.Enabled = *patch.Enabled
 	}
-	if patch.Solo != nil {
-		track.Solo = *patch.Solo
-	}
-	if patch.Mute != nil {
-		track.Mute = *patch.Mute
-	}
-	if patch.GainDB != nil {
-		track.Gain = lib.GainDB(*patch.GainDB)
-	}
 	if patch.Channel != nil {
-		track.Channel = int8(*patch.Channel)
+		track.MidiChannel = int8(*patch.Channel)
 	}
+
+	if mixchl != nil {
+		if patch.Solo != nil {
+			mixchl.SetSolo(*patch.Solo)
+		}
+		if patch.Mute != nil {
+			mixchl.SetMute(*patch.Mute)
+		}
+		if patch.GainDB != nil {
+			mixchl.SetGain(lib.GainDB(*patch.GainDB))
+		}
+	}
+
 	writeJSON(w, http.StatusOK, makeTrackResource(index, track))
 }
 
@@ -952,17 +958,24 @@ func makeTrackResource(index int, track *lib.Track) trackResource {
 	if track == nil {
 		return trackResource{Index: index, Channel: -1}
 	}
+
+	var info lib.MixerChannelInfo
+	mixchl := track.MixerChannel
+	if mixchl != nil {
+		mixchl.GetInfo(&info)
+	}
+
 	return trackResource{
 		Index:       index,
 		Name:        string(track.Name),
 		Label:       track.Label,
 		Description: track.Description,
 		Order:       track.Order,
-		Enabled:     track.Enabled,
-		Solo:        track.Solo,
-		Mute:        track.Mute,
-		GainDB:      float64(track.Gain),
-		Channel:     int(track.Channel),
+		Enabled:     info.Enabled,
+		Solo:        info.Solo,
+		Mute:        info.Mute,
+		GainDB:      float64(info.Gain),
+		Channel:     int(track.MidiChannel),
 	}
 }
 

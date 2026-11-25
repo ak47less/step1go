@@ -83,6 +83,7 @@
 | `GET` | `/cells` | 列出或筛选 cell |
 | `GET` | `/cells/{cellName}` | 按名称查询 cell |
 | `PATCH` | `/cells/{cellName}` | 设置或清除 cell 的 MIDI note |
+| `POST` | `/midi/events` | 批量发送MIDI事件到后端 |
 | `POST` | `/actions` | 批量执行兼容 action |
 
 ## 3. 服务状态

@@ -38,6 +38,7 @@ type ApplicationContext struct {
 	Clock             Clock
 	ActionController  ActionController
 	InstrumentManager InstrumentManager
+	Mixer             Mixer
 }
 
 ////////////////////////////////////////////////////////////////////////////////

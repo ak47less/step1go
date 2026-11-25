@@ -18,10 +18,11 @@ type Track struct {
 	Cube *Cube
 
 	Enabled bool
-	Solo    bool
-	Mute    bool
 
-	Gain GainDB
+	// 使用  MixerChannel 代替:
+	// Solo    bool
+	// Mute    bool
+	// Gain    GainDB
 
 	Index TrackIndex
 
@@ -33,10 +34,14 @@ type Track struct {
 
 	Order int
 
-	Channel core.MidiChannelNum
+	MidiChannel core.MidiChannelNum
 
 	Instrument       Instrument
 	InstrumentHolder InstrumentHolder
+	InstrumentInfo   InstrumentInfo
+
+	MixerChannel       MixerChannel
+	MixerChannelHolder MixerChannelHolder
 }
 
 ////////////////////////////////////////////////////////////////////////////////
