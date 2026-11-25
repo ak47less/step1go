@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0d100e">
+  <title>STEP1 Lite2 · Control Deck</title>
+  <link rel="stylesheet" href="/spa.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M7 7h7v7H7zM18 18h7v7h-7zM18 7h7v7h-7zM7 18h7v7H7z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M14 25h4M25 14v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-copy">
+          <p class="eyebrow">Sequencer workspace</p>
+          <h1>STEP1 <span>/ Lite2 Control Deck</span></h1>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="connection" id="connection" data-state="loading" role="status" aria-live="polite">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="connection-label">正在连接</span>
+        </div>
+        <button class="icon-button sync-button" id="refresh-button" type="button" title="刷新全部数据" aria-label="刷新全部数据">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 7v5h-5M4 17v-5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6.1 8.2A7 7 0 0 1 18.7 7M17.9 15.8A7 7 0 0 1 5.3 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="error-banner" id="error-banner" role="alert" hidden>
+      <span id="error-message"></span>
+      <button type="button" id="dismiss-error" aria-label="关闭错误提示">关闭</button>
+    </div>
+
+    <main>
+      <section class="hero-grid">
+        <article class="panel transport-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Transport</p>
+              <h2>走带控制</h2>
+              <p>播放、录制与时间线定位</p>
+            </div>
+            <span class="state-pill" id="transport-state">未知状态</span>
+          </div>
+          <div class="panel-body">
+            <div class="transport-grid">
+              <div>
+                <div class="time-display" id="position-display">00:00.000</div>
+                <div class="time-meta">
+                  <span>时间线 <strong id="timeline-label">@document</strong></span>
+                  <span>位置 <strong id="position-seconds">0.000 s</strong></span>
+                </div>
+                <form class="seek-form" id="seek-form">
+                  <label class="sr-only" for="seek-position">目标位置（秒）</label>
+                  <input id="seek-position" name="position" type="number" min="0" step="0.1" value="0" aria-label="目标位置（秒）">
+                  <select id="timeline-select" name="timeline" aria-label="目标时间线">
+                    <option value="@document">@document</option>
+                  </select>
+                  <button class="button button-small" type="submit">定位</button>
+                </form>
+              </div>
+              <div class="transport-controls">
+                <button class="button button-primary" type="button" data-command="play" title="播放（空格）">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z" fill="currentColor"/></svg>
+                  播放
+                </button>
+                <button class="button" type="button" data-command="pause-resume" id="pause-button" title="暂停或继续">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  <span>暂停</span>
+                </button>
+                <button class="button button-record" type="button" data-command="record">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>
+                  录制
+                </button>
+                <button class="button button-danger" type="button" data-command="stop">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/></svg>
+                  停止
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel engine-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Engine</p>
+              <h2>音频引擎</h2>
+              <p>驱动与音频上下文</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="engine-orbit">
+              <div class="engine-center">
+                <strong id="engine-state">UNKNOWN</strong>
+                <span id="audio-state">音频状态未知</span>
+              </div>
+            </div>
+            <div class="engine-actions">
+              <button class="button button-primary" type="button" data-command="engine-start">启动引擎</button>
+              <button class="button" type="button" data-command="engine-restart">重启</button>
+              <button class="button button-danger" type="button" data-command="engine-stop">停止引擎</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="metrics-grid" aria-label="系统状态">
+        <article class="metric" data-status-card="engine.started">
+          <span class="metric-label">Engine</span>
+          <strong class="metric-value" data-status-value>—</strong>
+        </article>
+        <article class="metric" data-status-card="transport.playing">
+          <span class="metric-label">Playing</span>
+          <strong class="metric-value" data-status-value>—</strong>
+        </article>
+        <article class="metric" data-status-card="transport.recording">
+          <span class="metric-label">Recording</span>
+          <strong class="metric-value" data-status-value>—</strong>
+        </article>
+        <article class="metric" data-status-card="transport.paused">
+          <span class="metric-label">Paused</span>
+          <strong class="metric-value" data-status-value>—</strong>
+        </article>
+        <article class="metric" data-status-card="audio.state">
+          <span class="metric-label">Audio</span>
+          <strong class="metric-value" data-status-value>—</strong>
+        </article>
+      </section>
+
+      <section class="panel midi-panel" aria-labelledby="midi-keyboard-heading">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Virtual input</p>
+            <h2 id="midi-keyboard-heading">虚拟 MIDI 键盘</h2>
+            <p>鼠标、触控或 PC 键盘演奏，实时发送到后端输入乐器</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="midi-toolbar">
+            <div class="midi-control">
+              <label for="midi-octave">起始八度</label>
+              <select id="midi-octave">
+                <option value="1">C1</option>
+                <option value="2">C2</option>
+                <option value="3" selected>C3</option>
+                <option value="4">C4</option>
+                <option value="5">C5</option>
+                <option value="6">C6</option>
+              </select>
+            </div>
+            <div class="midi-control">
+              <label for="midi-channel">MIDI 通道</label>
+              <select id="midi-channel"></select>
+            </div>
+            <div class="midi-control midi-velocity-control">
+              <div class="midi-velocity-head">
+                <label for="midi-velocity">力度</label>
+                <output id="midi-velocity-value" for="midi-velocity">100</output>
+              </div>
+              <input id="midi-velocity" type="range" min="1" max="127" step="1" value="100">
+            </div>
+            <div class="midi-activity" id="midi-activity" data-state="idle" role="status" aria-live="polite">
+              等待演奏
+            </div>
+          </div>
+          <p class="midi-hint">
+            鼠标点击或拖动琴键演奏。PC 键盘映射：
+            <kbd>A</kbd> C · <kbd>W</kbd> C# · <kbd>S</kbd> D · <kbd>E</kbd> D# ·
+            <kbd>D</kbd> E · <kbd>F</kbd> F · <kbd>T</kbd> F# · <kbd>G</kbd> G ·
+            <kbd>Y</kbd> G# · <kbd>H</kbd> A · <kbd>U</kbd> A# · <kbd>J</kbd> B ·
+            <kbd>K</kbd> 高音 C
+          </p>
+          <div class="midi-keyboard-shell">
+            <div class="midi-keyboard" id="midi-keyboard" role="group"
+              aria-label="虚拟 MIDI 键盘"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <article class="panel sequence-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Cube matrix</p>
+              <h2>Pattern 序列</h2>
+              <p id="sequence-meta">等待 Cube 数据</p>
+            </div>
+            <div class="bank-tabs" id="bank-tabs" aria-label="Bank 选择"></div>
+          </div>
+          <div class="sequence-wrap">
+            <div class="sequence-grid" id="sequence-grid" style="--step-count: 16">
+              <div class="sequence-empty">正在读取 Pattern…</div>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel inspector-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Inspector</p>
+              <h2>轨道检查器</h2>
+              <p>编辑当前 Track 与 Bank 属性</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="inspector-head">
+              <span class="inspector-number" id="track-number">—</span>
+              <div>
+                <strong id="track-heading">未选择轨道</strong>
+                <small id="track-subheading">选择左侧轨道开始编辑</small>
+              </div>
+            </div>
+
+            <form class="form-section" id="track-form">
+              <div class="form-section-title">
+                <h3>Track 参数</h3>
+                <span>PATCH /tracks/{index}</span>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="track-name">内部名称</label>
+                  <input id="track-name" name="name" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label for="track-label">显示名称</label>
+                  <input id="track-label" name="label" autocomplete="off">
+                </div>
+                <div class="field field-wide">
+                  <label for="track-description">描述</label>
+                  <textarea id="track-description" name="description"></textarea>
+                </div>
+                <div class="field">
+                  <label for="track-order">顺序</label>
+                  <input id="track-order" name="order" type="number" step="1">
+                </div>
+                <div class="field">
+                  <label for="track-channel">MIDI 通道</label>
+                  <input id="track-channel" name="channel" type="number" min="-1" max="127" step="1">
+                </div>
+                <div class="field field-wide">
+                  <label for="track-gain">增益（dB）</label>
+                  <input id="track-gain" name="gainDb" type="number" step="0.1">
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle"><input type="checkbox" name="enabled"> 启用</label>
+                  <label class="toggle"><input type="checkbox" name="solo"> Solo</label>
+                  <label class="toggle"><input type="checkbox" name="mute"> Mute</label>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="button button-small button-primary" id="save-track" type="submit" disabled>保存 Track</button>
+              </div>
+            </form>
+
+            <form class="form-section" id="cell-form">
+              <div class="form-section-title">
+                <h3>Cell Note</h3>
+                <span>PATCH /cells/{cellName}</span>
+              </div>
+              <div class="cell-readout" id="cell-readout" aria-live="polite">
+                <strong>未选择 Cell</strong>
+                <p>点击序列网格中的单元格编辑 MIDI Note。</p>
+              </div>
+              <div class="form-grid cell-note-fields">
+                <div class="field">
+                  <label for="note-number">MIDI 音高（0–127）</label>
+                  <input id="note-number" name="number" type="number" min="0" max="127" step="1"
+                    inputmode="numeric" value="60" disabled required>
+                </div>
+                <div class="field">
+                  <label for="note-velocity">力度（0–127）</label>
+                  <input id="note-velocity" name="velocity" type="number" min="0" max="127" step="1"
+                    inputmode="numeric" value="100" disabled required>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="button button-small" id="clear-cell-note" type="button" disabled>清除 Note</button>
+                <button class="button button-small button-primary" id="save-cell-note" type="submit" disabled>保存 Note</button>
+              </div>
+            </form>
+
+            <form class="form-section" id="bank-form">
+              <div class="form-section-title">
+                <h3>Bank 信息</h3>
+                <span>PATCH /banks/{index}</span>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="bank-label">名称</label>
+                  <input id="bank-label" name="label" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label for="bank-description">描述</label>
+                  <input id="bank-description" name="description" autocomplete="off">
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="button button-small" id="save-bank" type="submit">保存 Bank</button>
+              </div>
+            </form>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel actions-panel">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Development console</p>
+            <h2>批量 Action</h2>
+            <p>按文档串行执行并查看原始响应</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div>
+            <p class="actions-help">请求体将直接发送到 <code>POST /api/v1/actions</code>。</p>
+            <textarea class="action-editor" id="action-editor" spellcheck="false" aria-label="批量 Action JSON">{
+  "actions": [
+    {
+      "name": "status",
+      "params": {
+        "all": true
+      }
+    }
+  ]
+}</textarea>
+            <div class="action-toolbar">
+              <div class="action-toolbar-group">
+                <button class="button button-small" type="button" id="fill-status-action">状态示例</button>
+                <button class="button button-small" type="button" id="fill-start-action">启动示例</button>
+              </div>
+              <button class="button button-small button-primary" type="button" id="execute-actions">执行 Action</button>
+            </div>
+          </div>
+          <pre class="response-box" id="action-response" aria-live="polite">等待执行…</pre>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>STEP1 Lite2 · REST API v1</span>
+      <span id="last-updated">尚未同步</span>
+    </footer>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+  <script src="/spa.js"></script>
+</body>
+</html>

@@ -185,6 +185,15 @@ func performRequest(handler http.Handler, method, target, body string) *httptest
 	return response
 }
 
+func requireSPAAsset(t *testing.T, handler http.Handler, target string) string {
+	t.Helper()
+	response := performRequest(handler, http.MethodGet, target, "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("%s status = %d, want %d", target, response.Code, http.StatusOK)
+	}
+	return response.Body.String()
+}
+
 func decodeErrorCode(t *testing.T, response *httptest.ResponseRecorder) string {
 	t.Helper()
 	var payload apiErrorResponse
@@ -243,11 +252,31 @@ func TestSPAIsMountedAtRoot(t *testing.T) {
 			t.Fatalf("%s content type = %q", target, contentType)
 		}
 		if !strings.Contains(response.Body.String(), "<!DOCTYPE html>") {
-			t.Fatalf("%s did not return index.html", target)
+			t.Fatalf("%s did not return spa.html", target)
 		}
 		if !strings.Contains(response.Body.String(), "STEP1 Lite2") ||
 			!strings.Contains(response.Body.String(), "批量 Action") {
 			t.Fatalf("%s did not return the SPA application", target)
+		}
+		if !strings.Contains(response.Body.String(), `href="/spa.css"`) ||
+			!strings.Contains(response.Body.String(), `src="/spa.js"`) {
+			t.Fatalf("%s did not reference split SPA assets", target)
+		}
+	}
+
+	for _, asset := range []struct {
+		path        string
+		contentType string
+	}{
+		{path: "/spa.css", contentType: "text/css"},
+		{path: "/spa.js", contentType: "javascript"},
+	} {
+		response := performRequest(handler, http.MethodGet, asset.path, "")
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want %d", asset.path, response.Code, http.StatusOK)
+		}
+		if contentType := response.Header().Get("Content-Type"); !strings.Contains(contentType, asset.contentType) {
+			t.Fatalf("%s content type = %q, want %q", asset.path, contentType, asset.contentType)
 		}
 	}
 
@@ -266,25 +295,30 @@ func TestSPAIncludesCellNoteEditor(t *testing.T) {
 	web, _ := newTestWebServer(t)
 	handler := web.handler()
 
-	response := performRequest(handler, http.MethodGet, "/", "")
-	if response.Code != http.StatusOK {
-		t.Fatalf("SPA status = %d, want %d", response.Code, http.StatusOK)
-	}
-	body := response.Body.String()
-	markers := []string{
+	html := requireSPAAsset(t, handler, "/")
+	htmlMarkers := []string{
 		`id="cell-form"`,
 		`id="note-number"`,
 		`id="note-velocity"`,
 		`id="save-cell-note"`,
 		`id="clear-cell-note"`,
+	}
+	for _, marker := range htmlMarkers {
+		if !strings.Contains(html, marker) {
+			t.Fatalf("SPA HTML does not contain cell note editor marker %q", marker)
+		}
+	}
+
+	script := requireSPAAsset(t, handler, "/spa.js")
+	scriptMarkers := []string{
 		"`/cells/${encodeURIComponent(cellName)}`",
 		"body: { note: { number, velocity } }",
 		"body: { note: null }",
 		`classes.push("has-note")`,
 	}
-	for _, marker := range markers {
-		if !strings.Contains(body, marker) {
-			t.Fatalf("SPA does not contain cell note editor marker %q", marker)
+	for _, marker := range scriptMarkers {
+		if !strings.Contains(script, marker) {
+			t.Fatalf("SPA script does not contain cell note editor marker %q", marker)
 		}
 	}
 }
@@ -293,17 +327,22 @@ func TestSPAIncludesMidiKeyboard(t *testing.T) {
 	web, _ := newTestWebServer(t)
 	handler := web.handler()
 
-	response := performRequest(handler, http.MethodGet, "/", "")
-	if response.Code != http.StatusOK {
-		t.Fatalf("SPA status = %d, want %d", response.Code, http.StatusOK)
-	}
-	body := response.Body.String()
-	markers := []string{
+	html := requireSPAAsset(t, handler, "/")
+	htmlMarkers := []string{
 		`id="midi-keyboard"`,
 		`id="midi-octave"`,
 		`id="midi-channel"`,
 		`id="midi-velocity"`,
 		`id="midi-activity"`,
+	}
+	for _, marker := range htmlMarkers {
+		if !strings.Contains(html, marker) {
+			t.Fatalf("SPA HTML does not contain MIDI keyboard marker %q", marker)
+		}
+	}
+
+	script := requireSPAAsset(t, handler, "/spa.js")
+	scriptMarkers := []string{
 		`const MIDI_PC_KEYS`,
 		`"/midi/events"`,
 		`sendMidiEvent("note_on"`,
@@ -312,9 +351,9 @@ func TestSPAIncludesMidiKeyboard(t *testing.T) {
 		`moveMidiPointer`,
 		`releaseAllMidiNotes`,
 	}
-	for _, marker := range markers {
-		if !strings.Contains(body, marker) {
-			t.Fatalf("SPA does not contain MIDI keyboard marker %q", marker)
+	for _, marker := range scriptMarkers {
+		if !strings.Contains(script, marker) {
+			t.Fatalf("SPA script does not contain MIDI keyboard marker %q", marker)
 		}
 	}
 }

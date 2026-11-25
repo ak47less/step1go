@@ -32,7 +32,7 @@ func (inst *innerWebServer) handleSPA(w http.ResponseWriter, r *http.Request) {
 
 	assetName := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
 	if assetName == "" || strings.HasSuffix(r.URL.Path, "/") {
-		assetName = "index.html"
+		assetName = "spa.html"
 	}
 	if serveSPAAsset(w, r, assetName) {
 		return
@@ -41,7 +41,7 @@ func (inst *innerWebServer) handleSPA(w http.ResponseWriter, r *http.Request) {
 	// Client-side routes do not have a file extension and are resolved by the
 	// SPA's own router. Missing assets keep a 404 instead of returning HTML.
 	if path.Ext(assetName) == "" {
-		if serveSPAAsset(w, r, "index.html") {
+		if serveSPAAsset(w, r, "spa.html") {
 			return
 		}
 	}
