@@ -106,6 +106,173 @@ type AudioBufferSourceNode interface {
 	GetDetune() AudioParam
 }
 
+// BiquadFilterType identifies a second-order filter response.
+type BiquadFilterType string
+
+const (
+	BiquadFilterTypeLowpass   BiquadFilterType = "lowpass"
+	BiquadFilterTypeHighpass  BiquadFilterType = "highpass"
+	BiquadFilterTypeBandpass  BiquadFilterType = "bandpass"
+	BiquadFilterTypeLowshelf  BiquadFilterType = "lowshelf"
+	BiquadFilterTypeHighshelf BiquadFilterType = "highshelf"
+	BiquadFilterTypePeaking   BiquadFilterType = "peaking"
+	BiquadFilterTypeNotch     BiquadFilterType = "notch"
+	BiquadFilterTypeAllpass   BiquadFilterType = "allpass"
+)
+
+// BiquadFilterNode applies a configurable second-order filter.
+type BiquadFilterNode interface {
+	AudioNode
+
+	GetFrequency() AudioParam
+	GetDetune() AudioParam
+	GetQ() AudioParam
+	GetGain() AudioParam
+	GetType() BiquadFilterType
+	SetType(filterType BiquadFilterType)
+	GetFrequencyResponse(frequencyHz []float64, magnitude []float64, phase []float64)
+}
+
+// IIRFilterNode applies a general infinite impulse response filter. The
+// virtual API starts with a unity feed-forward coefficient so that the node is
+// ready to connect before coefficients are configured by an implementation.
+type IIRFilterNode interface {
+	AudioNode
+
+	GetFrequencyResponse(frequencyHz []float64, magnitude []float64, phase []float64)
+}
+
+// DelayNode delays its input by an automatable amount of time.
+type DelayNode interface {
+	AudioNode
+
+	GetDelayTime() AudioParam
+}
+
+// DynamicsCompressorNode reduces the dynamic range of its input.
+type DynamicsCompressorNode interface {
+	AudioNode
+
+	GetThreshold() AudioParam
+	GetKnee() AudioParam
+	GetRatio() AudioParam
+	GetAttack() AudioParam
+	GetRelease() AudioParam
+	GetReduction() float64
+}
+
+// AnalyserNode exposes time and frequency domain analysis of its input while
+// passing the signal through unchanged.
+type AnalyserNode interface {
+	AudioNode
+
+	GetFFTSize() int
+	SetFFTSize(size int)
+	GetFrequencyBinCount() int
+	GetMinDecibels() float64
+	SetMinDecibels(value float64)
+	GetMaxDecibels() float64
+	SetMaxDecibels(value float64)
+	GetSmoothingTimeConstant() float64
+	SetSmoothingTimeConstant(value float64)
+	GetFloatFrequencyData(destination []float32)
+	GetByteFrequencyData(destination []uint8)
+}
+
+// PanningModelType identifies the algorithm used by a PannerNode.
+type PanningModelType string
+
+const (
+	PanningModelTypeEqualPower PanningModelType = "equalpower"
+	PanningModelTypeHRTF       PanningModelType = "HRTF"
+)
+
+// DistanceModelType identifies how a PannerNode attenuates distant sources.
+type DistanceModelType string
+
+const (
+	DistanceModelTypeLinear      DistanceModelType = "linear"
+	DistanceModelTypeInverse     DistanceModelType = "inverse"
+	DistanceModelTypeExponential DistanceModelType = "exponential"
+)
+
+// PannerNode positions an input in three-dimensional space.
+type PannerNode interface {
+	AudioNode
+
+	GetPositionX() float64
+	GetPositionY() float64
+	GetPositionZ() float64
+	SetPosition(x float64, y float64, z float64)
+	GetOrientationX() float64
+	GetOrientationY() float64
+	GetOrientationZ() float64
+	SetOrientation(x float64, y float64, z float64)
+	GetPanningModel() PanningModelType
+	SetPanningModel(model PanningModelType)
+	GetDistanceModel() DistanceModelType
+	SetDistanceModel(model DistanceModelType)
+	GetRefDistance() float64
+	SetRefDistance(value float64)
+	GetMaxDistance() float64
+	SetMaxDistance(value float64)
+	GetRolloffFactor() float64
+	SetRolloffFactor(value float64)
+}
+
+// ChannelSplitterNode separates its input's channels into separate outputs.
+type ChannelSplitterNode interface {
+	AudioNode
+
+	GetNumberOfOutputs() int
+}
+
+// ChannelMergerNode combines its inputs into one channel layout.
+type ChannelMergerNode interface {
+	AudioNode
+
+	GetNumberOfInputs() int
+}
+
+// ConstantSourceNode outputs an automatable constant value.
+type ConstantSourceNode interface {
+	AudioScheduledSourceNode
+
+	GetOffset() AudioParam
+}
+
+// OverSampleType controls optional oversampling in a WaveShaperNode.
+type OverSampleType string
+
+const (
+	OverSampleTypeNone OverSampleType = "none"
+	OverSampleType2x   OverSampleType = "2x"
+	OverSampleType4x   OverSampleType = "4x"
+)
+
+// WaveShaperNode applies a non-linear shaping curve.
+type WaveShaperNode interface {
+	AudioNode
+
+	GetCurve() []SampleValue
+	SetCurve(curve []SampleValue)
+	GetOversample() OverSampleType
+	SetOversample(oversample OverSampleType)
+}
+
+// PeriodicWave describes a custom periodic waveform.
+type PeriodicWave interface {
+	GetReal() []float64
+	GetImag() []float64
+}
+
+// ScriptProcessorNode allows application code to process audio buffers.
+type ScriptProcessorNode interface {
+	AudioNode
+
+	GetBufferSize() int
+}
+
 // BaseAudioContext contains the methods shared by AudioContext and
 // OfflineAudioContext.
 type BaseAudioContext interface {
@@ -136,19 +303,40 @@ type BaseAudioContext interface {
 	// CreateBufferSource creates a source which plays an AudioBuffer.
 	CreateBufferSource() AudioBufferSourceNode
 
-	// todo: 添加以下这些函数
-
+	// CreateBiquadFilter creates a configurable second-order filter.
 	CreateBiquadFilter() BiquadFilterNode
+
+	// CreateIIRFilter creates a general IIR filter.
 	CreateIIRFilter() IIRFilterNode
+
+	// CreateDelay creates a delay line.
 	CreateDelay() DelayNode
+
+	// CreateDynamicsCompressor creates a dynamic range compressor.
 	CreateDynamicsCompressor() DynamicsCompressorNode
+
+	// CreateAnalyser creates a pass-through audio analyser.
 	CreateAnalyser() AnalyserNode
+
+	// CreatePanner creates a three-dimensional panner.
 	CreatePanner() PannerNode
+
+	// CreateChannelSplitter creates a channel splitter.
 	CreateChannelSplitter() ChannelSplitterNode
+
+	// CreateChannelMerger creates a channel merger.
 	CreateChannelMerger() ChannelMergerNode
+
+	// CreateConstantSource creates a scheduled constant-value source.
 	CreateConstantSource() ConstantSourceNode
+
+	// CreateWaveShaper creates a non-linear wave shaper.
 	CreateWaveShaper() WaveShaperNode
+
+	// CreatePeriodicWave creates a custom periodic waveform.
 	CreatePeriodicWave() PeriodicWave
+
+	// CreateScriptProcessor creates a script-driven buffer processor.
 	CreateScriptProcessor() ScriptProcessorNode
 }
 
