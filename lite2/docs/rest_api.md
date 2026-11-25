@@ -3,9 +3,9 @@
 本文档定义 Web 前端与 STEP1 Lite2 后端之间的 HTTP/JSON 接口约定，接口范围来自当前
 `lib` 中的引擎、走带、状态、Cube（bank/step/track/cell）和 MIDI 相关能力。
 
-> 实现状态：除第 7 节 MIDI 事件接口外，`ui/restful` 已按本文提供基于标准库
-> `net/http` 的 HTTP 服务，服务器由 `WebServerConfig` 控制启用、主机和端口。
-> 引擎与走带命令最终由 `ActionController` 的后端实现执行。
+> 实现状态：`ui/restful` 已按本文提供基于标准库 `net/http` 的 HTTP 服务，服务器
+> 由 `WebServerConfig` 控制启用、主机和端口。引擎与走带命令最终由
+> `ActionController` 的后端实现执行。
 
 ## 1. 通用约定
 
@@ -492,8 +492,6 @@ GET /api/v1/cells?bankIndex=0&stepIndex=3
 ### 7.1 批量发送 MIDI 事件
 
 `POST /midi/events`
-
-> 实现状态：本节为接口协议草案，`ui/restful` 路由尚未接入。
 
 批量发送 MIDI 事件到当前引擎的输入乐器。请求中的事件按数组顺序处理；负的
 `time` 表示立即触发，非负 `time` 表示在时间轴上的绝对时刻触发，单位为秒。

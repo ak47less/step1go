@@ -51,6 +51,7 @@ func (inst *innerWebServer) handler() http.Handler {
 	mux.HandleFunc(restBasePath+"/tracks/{trackIndex}", inst.handleTrack)
 	mux.HandleFunc(restBasePath+"/cells", inst.handleCells)
 	mux.HandleFunc(restBasePath+"/cells/{cellName}", inst.handleCell)
+	mux.HandleFunc(restBasePath+"/midi/events", inst.handleMIDIEvents)
 	mux.HandleFunc(restBasePath+"/actions", inst.handleActions)
 	mux.HandleFunc("/", inst.handleSPA)
 
