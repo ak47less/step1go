@@ -800,6 +800,37 @@
       box-shadow: 0 0 10px rgba(201, 255, 98, 0.65);
     }
 
+    .seq-cell.has-note {
+      color: var(--cyan);
+      border-color: rgba(113, 231, 208, 0.28);
+      background: rgba(113, 231, 208, 0.06);
+    }
+
+    .seq-cell.has-note::before {
+      background: var(--cyan);
+      box-shadow: 0 0 9px rgba(113, 231, 208, 0.48);
+    }
+
+    .seq-cell.has-note span {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    .seq-cell.is-selected.has-note {
+      color: var(--accent);
+      border-color: rgba(201, 255, 98, 0.48);
+      background: var(--accent-soft);
+    }
+
+    .seq-cell.is-selected.has-note::before {
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(201, 255, 98, 0.65);
+    }
+
+    .seq-cell.is-selected.has-note span {
+      color: var(--accent);
+    }
+
     .sequence-empty,
     .inspector-empty {
       padding: 28px 12px;
@@ -970,6 +1001,15 @@
       margin: 5px 0 0;
       color: var(--dim);
       font-size: 10px;
+    }
+
+    .cell-readout p strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .cell-note-fields {
+      padding: 2px 0;
     }
 
     .actions-panel .panel-body {
@@ -1406,10 +1446,32 @@
               </div>
             </form>
 
-            <div class="cell-readout" id="cell-readout">
-              <strong>未选择 Cell</strong>
-              <p>点击序列网格中的单元格查看坐标信息。</p>
-            </div>
+            <form class="form-section" id="cell-form">
+              <div class="form-section-title">
+                <h3>Cell Note</h3>
+                <span>PATCH /cells/{cellName}</span>
+              </div>
+              <div class="cell-readout" id="cell-readout" aria-live="polite">
+                <strong>未选择 Cell</strong>
+                <p>点击序列网格中的单元格编辑 MIDI Note。</p>
+              </div>
+              <div class="form-grid cell-note-fields">
+                <div class="field">
+                  <label for="note-number">MIDI 音高（0–127）</label>
+                  <input id="note-number" name="number" type="number" min="0" max="127" step="1"
+                    inputmode="numeric" value="60" disabled required>
+                </div>
+                <div class="field">
+                  <label for="note-velocity">力度（0–127）</label>
+                  <input id="note-velocity" name="velocity" type="number" min="0" max="127" step="1"
+                    inputmode="numeric" value="100" disabled required>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="button button-small" id="clear-cell-note" type="button" disabled>清除 Note</button>
+                <button class="button button-small button-primary" id="save-cell-note" type="submit" disabled>保存 Note</button>
+              </div>
+            </form>
 
             <form class="form-section" id="bank-form">
               <div class="form-section-title">
@@ -1510,6 +1572,7 @@
         selectedBank: 0,
         selectedTrack: 0,
         selectedCell: null,
+        cellSaving: false,
         busy: false,
         loading: false
       };
@@ -1547,6 +1610,11 @@
         bankDescription: $("#bank-description"),
         saveBank: $("#save-bank"),
         cellReadout: $("#cell-readout"),
+        cellForm: $("#cell-form"),
+        noteNumber: $("#note-number"),
+        noteVelocity: $("#note-velocity"),
+        saveCellNote: $("#save-cell-note"),
+        clearCellNote: $("#clear-cell-note"),
         actionEditor: $("#action-editor"),
         actionResponse: $("#action-response"),
         executeActions: $("#execute-actions"),
@@ -1749,8 +1817,9 @@
         try {
           const data = await api(`/cells?bankIndex=${encodeURIComponent(state.selectedBank)}`);
           state.cells = Array.isArray(data?.items) ? data.items : [];
-          if (state.selectedCell && !state.cells.some((cell) => cell.name === state.selectedCell.name)) {
-            state.selectedCell = null;
+          if (state.selectedCell) {
+            const selectedName = state.selectedCell.name;
+            state.selectedCell = state.cells.find((cell) => cell.name === selectedName) || null;
           }
         } catch (error) {
           state.cells = [];
@@ -1916,12 +1985,20 @@
             const name = `b${state.selectedBank}_s${step.index}_t${track.index}`;
             const cell = cellMap.get(name);
             const selected = state.selectedCell?.name === name;
+            const note = cell?.note || null;
+            const classes = ["seq-cell"];
+            if (note) classes.push("has-note");
+            if (selected) classes.push("is-selected");
+            const noteLabel = note ? String(note.number) : cell ? "·" : "–";
+            const title = note
+              ? `${name} · Note ${note.number} · Velocity ${note.velocity}`
+              : name;
             blocks.push(`
-              <button class="seq-cell${selected ? " is-selected" : ""}" type="button"
+              <button class="${classes.join(" ")}" type="button"
                 data-cell-name="${escapeHTML(name)}"
                 aria-label="Cell ${escapeHTML(name)}"
-                title="${escapeHTML(name)}">
-                <span>${cell ? "·" : "–"}</span>
+                title="${escapeHTML(title)}">
+                <span>${escapeHTML(noteLabel)}</span>
               </button>
             `);
           }
@@ -1977,14 +2054,33 @@
       function renderCellReadout() {
         const cell = state.selectedCell;
         if (!cell) {
-          els.cellReadout.innerHTML = "<strong>未选择 Cell</strong><p>点击序列网格中的单元格查看坐标信息。</p>";
+          els.cellReadout.innerHTML = "<strong>未选择 Cell</strong><p>点击序列网格中的单元格编辑 MIDI Note。</p>";
+          els.noteNumber.value = 60;
+          els.noteVelocity.value = 100;
+          updateCellEditorState();
           return;
         }
+        const note = cell.note || null;
+        const noteState = note
+          ? `Note <strong>${escapeHTML(note.number)}</strong> · Velocity <strong>${escapeHTML(note.velocity)}</strong>`
+          : "尚未设置 Note";
         els.cellReadout.innerHTML = `
           <strong>${escapeHTML(cell.name)}</strong>
           <p>Bank ${cell.bankIndex} · Step ${cell.stepIndex} · Track ${cell.trackIndex}<br>
-          当前 API 仅提供 Cell 坐标，内容编辑尚未定义。</p>
+          ${noteState}</p>
         `;
+        els.noteNumber.value = note ? note.number : 60;
+        els.noteVelocity.value = note ? note.velocity : 100;
+        updateCellEditorState();
+      }
+
+      function updateCellEditorState() {
+        const cell = state.selectedCell;
+        const disabled = !cell || state.cellSaving || state.busy;
+        els.noteNumber.disabled = disabled;
+        els.noteVelocity.disabled = disabled;
+        els.saveCellNote.disabled = disabled;
+        els.clearCellNote.disabled = disabled || !cell?.note;
       }
 
       function setBusy(busy) {
@@ -1993,6 +2089,7 @@
           button.disabled = busy;
         });
         $("button[type='submit']", els.seekForm).disabled = busy;
+        updateCellEditorState();
       }
 
       async function runCommand(name) {
@@ -2083,6 +2180,81 @@
         };
         renderSequence();
         renderCellReadout();
+      }
+
+      function setCellSaving(saving) {
+        state.cellSaving = saving;
+        updateCellEditorState();
+      }
+
+      function replaceCell(updated) {
+        state.cells = state.cells.map((cell) => cell.name === updated.name ? updated : cell);
+        if (state.selectedCell?.name === updated.name) {
+          state.selectedCell = updated;
+        }
+        renderSequence();
+        renderCellReadout();
+      }
+
+      function readNoteValue(input, label) {
+        const raw = input.value.trim();
+        const value = Number(raw);
+        if (raw === "" || !Number.isInteger(value) || value < 0 || value > 127) {
+          showError(`${label}必须是 0 到 127 之间的整数。`);
+          input.focus();
+          return null;
+        }
+        return value;
+      }
+
+      async function saveCellNote(event) {
+        event.preventDefault();
+        const cell = state.selectedCell;
+        if (!cell || state.cellSaving || state.busy) return;
+
+        const number = readNoteValue(els.noteNumber, "MIDI 音高");
+        if (number === null) return;
+        const velocity = readNoteValue(els.noteVelocity, "力度");
+        if (velocity === null) return;
+
+        const cellName = cell.name;
+        setCellSaving(true);
+        try {
+          const updated = await api(`/cells/${encodeURIComponent(cellName)}`, {
+            method: "PATCH",
+            body: { note: { number, velocity } }
+          });
+          replaceCell(updated);
+          toast(`${cellName} 的 Note 已保存`);
+          clearError();
+        } catch (error) {
+          showError(describeError(error));
+          toast(describeError(error), "error");
+        } finally {
+          setCellSaving(false);
+        }
+      }
+
+      async function clearCellNote() {
+        const cell = state.selectedCell;
+        if (!cell?.note || state.cellSaving || state.busy) return;
+
+        const cellName = cell.name;
+        setCellSaving(true);
+        try {
+          const updated = await api(`/cells/${encodeURIComponent(cellName)}`, {
+            method: "PATCH",
+            body: { note: null }
+          });
+          replaceCell(updated);
+          toast(`${cellName} 的 Note 已清除`);
+          clearError();
+        } catch (error) {
+          showError(describeError(error));
+          toast(describeError(error), "error");
+        } finally {
+          setCellSaving(false);
+        }
       }
 
       async function saveTrack(event) {
@@ -2218,6 +2390,8 @@
         els.dismissError.addEventListener("click", clearError);
         els.seekForm.addEventListener("submit", seek);
         els.trackForm.addEventListener("submit", saveTrack);
+        els.cellForm.addEventListener("submit", saveCellNote);
+        els.clearCellNote.addEventListener("click", clearCellNote);
         els.bankForm.addEventListener("submit", saveBank);
         els.executeActions.addEventListener("click", executeActions);
         $("#fill-status-action").addEventListener("click", fillStatusAction);

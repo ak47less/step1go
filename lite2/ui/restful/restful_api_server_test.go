@@ -262,6 +262,33 @@ func TestSPAIsMountedAtRoot(t *testing.T) {
 	}
 }
 
+func TestSPAIncludesCellNoteEditor(t *testing.T) {
+	web, _ := newTestWebServer(t)
+	handler := web.handler()
+
+	response := performRequest(handler, http.MethodGet, "/", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("SPA status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	markers := []string{
+		`id="cell-form"`,
+		`id="note-number"`,
+		`id="note-velocity"`,
+		`id="save-cell-note"`,
+		`id="clear-cell-note"`,
+		"`/cells/${encodeURIComponent(cellName)}`",
+		"body: { note: { number, velocity } }",
+		"body: { note: null }",
+		`classes.push("has-note")`,
+	}
+	for _, marker := range markers {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("SPA does not contain cell note editor marker %q", marker)
+		}
+	}
+}
+
 func TestStatusAndCommands(t *testing.T) {
 	web, controller := newTestWebServer(t)
 	handler := web.handler()

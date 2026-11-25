@@ -45,6 +45,8 @@ type InstrumentRegistration struct {
 
 type InstrumentManager interface {
 	FindRegistration(info *InstrumentInfo) (*InstrumentRegistration, error)
+
+	ListInstruments() []*InstrumentInfo
 }
 
 type InstrumentRegistry interface {

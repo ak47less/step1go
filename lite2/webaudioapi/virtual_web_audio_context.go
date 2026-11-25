@@ -109,17 +109,9 @@ type AudioBufferSourceNode interface {
 // BaseAudioContext contains the methods shared by AudioContext and
 // OfflineAudioContext.
 type BaseAudioContext interface {
-	// CreateOscillator creates a periodic waveform source.
-	CreateOscillator() OscillatorNode
-
-	// CreateGain creates a node which applies an audio-rate gain.
-	CreateGain() GainNode
 
 	// CreateBuffer allocates a planar PCM buffer.
 	CreateBuffer(numberOfChannels int, length SampleCount, sampleRate SampleRate) AudioBuffer
-
-	// CreateBufferSource creates a source which plays an AudioBuffer.
-	CreateBufferSource() AudioBufferSourceNode
 
 	// GetCurrentTime returns the current Web Audio context time.
 	GetCurrentTime() Seconds
@@ -132,6 +124,32 @@ type BaseAudioContext interface {
 
 	// GetState returns the current context lifecycle state.
 	GetState() AudioContextState
+
+	// node creators
+
+	// CreateOscillator creates a periodic waveform source.
+	CreateOscillator() OscillatorNode
+
+	// CreateGain creates a node which applies an audio-rate gain.
+	CreateGain() GainNode
+
+	// CreateBufferSource creates a source which plays an AudioBuffer.
+	CreateBufferSource() AudioBufferSourceNode
+
+	// todo: 添加以下这些函数
+
+	CreateBiquadFilter() BiquadFilterNode
+	CreateIIRFilter() IIRFilterNode
+	CreateDelay() DelayNode
+	CreateDynamicsCompressor() DynamicsCompressorNode
+	CreateAnalyser() AnalyserNode
+	CreatePanner() PannerNode
+	CreateChannelSplitter() ChannelSplitterNode
+	CreateChannelMerger() ChannelMergerNode
+	CreateConstantSource() ConstantSourceNode
+	CreateWaveShaper() WaveShaperNode
+	CreatePeriodicWave() PeriodicWave
+	CreateScriptProcessor() ScriptProcessorNode
 }
 
 // AudioContext is a one-to-one virtual counterpart of the Web Audio API
