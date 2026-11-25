@@ -289,6 +289,36 @@ func TestSPAIncludesCellNoteEditor(t *testing.T) {
 	}
 }
 
+func TestSPAIncludesMidiKeyboard(t *testing.T) {
+	web, _ := newTestWebServer(t)
+	handler := web.handler()
+
+	response := performRequest(handler, http.MethodGet, "/", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("SPA status = %d, want %d", response.Code, http.StatusOK)
+	}
+	body := response.Body.String()
+	markers := []string{
+		`id="midi-keyboard"`,
+		`id="midi-octave"`,
+		`id="midi-channel"`,
+		`id="midi-velocity"`,
+		`id="midi-activity"`,
+		`const MIDI_PC_KEYS`,
+		`"/midi/events"`,
+		`sendMidiEvent("note_on"`,
+		`sendMidiEvent("note_off"`,
+		`startMidiPointer`,
+		`moveMidiPointer`,
+		`releaseAllMidiNotes`,
+	}
+	for _, marker := range markers {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("SPA does not contain MIDI keyboard marker %q", marker)
+		}
+	}
+}
+
 func TestStatusAndCommands(t *testing.T) {
 	web, controller := newTestWebServer(t)
 	handler := web.handler()

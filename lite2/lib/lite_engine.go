@@ -170,6 +170,11 @@ func (inst *DefaultEngine) innerOnLoop() error {
 	const interval = time.Second / 10
 	ec := inst.context.AC.EngineContext
 
+	ec.Started = true
+	defer func() {
+		ec.Stopped = true
+	}()
+
 	for {
 		if ec.Stopping {
 			break
@@ -177,9 +182,7 @@ func (inst *DefaultEngine) innerOnLoop() error {
 		if ec.Stopped {
 			break
 		}
-		// if !ec.Starting {
-		// 	break
-		// }
+
 		time.Sleep(interval)
 	}
 	return nil

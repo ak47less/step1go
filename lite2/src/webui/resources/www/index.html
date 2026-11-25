@@ -621,6 +621,219 @@
       color: var(--orange);
     }
 
+    .midi-panel .panel-body {
+      display: grid;
+      gap: 14px;
+    }
+
+    .midi-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 10px 14px;
+    }
+
+    .midi-control {
+      display: grid;
+      gap: 5px;
+      min-width: 112px;
+    }
+
+    .midi-control label {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .midi-control select {
+      min-height: 36px;
+      padding: 0 30px 0 10px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--bg-soft);
+    }
+
+    .midi-velocity-control {
+      min-width: min(260px, 100%);
+      flex: 1;
+    }
+
+    .midi-velocity-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .midi-velocity-head output {
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .midi-velocity-control input {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .midi-activity {
+      min-height: 34px;
+      margin-left: auto;
+      padding: 7px 11px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--bg-soft);
+      font-family: var(--mono);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .midi-activity[data-state="active"] {
+      color: var(--accent);
+      border-color: rgba(201, 255, 98, 0.3);
+      background: var(--accent-soft);
+    }
+
+    .midi-activity[data-state="error"] {
+      color: var(--danger);
+      border-color: rgba(255, 119, 119, 0.3);
+      background: var(--danger-soft);
+    }
+
+    .midi-hint {
+      margin: 0;
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .midi-hint kbd {
+      padding: 1px 5px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-bottom-color: var(--line-strong);
+      border-radius: 4px;
+      background: var(--bg-soft);
+      font-family: var(--mono);
+      font-size: 9px;
+    }
+
+    .midi-keyboard-shell {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 35%),
+        #0d110e;
+    }
+
+    .midi-keyboard {
+      position: relative;
+      display: flex;
+      height: 180px;
+      overflow: hidden;
+      border-radius: 9px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .piano-key {
+      position: relative;
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 3px 9px;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+      transition: background 70ms ease, border-color 70ms ease, transform 70ms ease;
+    }
+
+    .piano-key:focus-visible {
+      z-index: 6;
+      outline-offset: -4px;
+    }
+
+    .piano-white-key {
+      z-index: 1;
+      min-height: 0;
+      flex: 1;
+      margin-right: 2px;
+      color: #263027;
+      border: 1px solid #aab3a9;
+      border-radius: 0 0 7px 7px;
+      background: linear-gradient(180deg, #f7faf4 0%, #dfe6dc 82%, #c8d0c6 100%);
+      box-shadow: inset 0 -7px 0 rgba(73, 86, 73, 0.12);
+    }
+
+    .piano-white-key:last-child {
+      margin-right: 0;
+    }
+
+    .piano-white-key:hover {
+      background: linear-gradient(180deg, #ffffff 0%, #eef4e9 82%, #d7dfd3 100%);
+    }
+
+    .piano-white-key.is-active {
+      color: #11150f;
+      border-color: #d9ff8b;
+      background: linear-gradient(180deg, #e8ffbc 0%, var(--accent) 70%, #a6da37 100%);
+      box-shadow: inset 0 -4px 0 rgba(66, 92, 20, 0.2), 0 0 22px rgba(201, 255, 98, 0.2);
+      transform: translateY(3px);
+    }
+
+    .piano-black-key {
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      height: 62%;
+      min-height: 0;
+      color: #d6dfd5;
+      border: 1px solid #050705;
+      border-radius: 0 0 5px 5px;
+      background: linear-gradient(180deg, #303831 0%, #121612 68%, #050705 100%);
+      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.55), inset 0 -6px 0 rgba(255, 255, 255, 0.035);
+    }
+
+    .piano-black-key:hover {
+      background: linear-gradient(180deg, #435044 0%, #1b211c 68%, #080b09 100%);
+    }
+
+    .piano-black-key.is-active {
+      color: #07110e;
+      border-color: var(--cyan);
+      background: linear-gradient(180deg, #9ff8e7 0%, var(--cyan) 70%, #39bca3 100%);
+      box-shadow: 0 0 20px rgba(113, 231, 208, 0.28);
+      transform: translateY(2px);
+    }
+
+    .piano-key-caption {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .piano-key-shortcut {
+      margin-bottom: 3px;
+      opacity: 0.65;
+      font-family: var(--mono);
+      font-size: 8px;
+      pointer-events: none;
+    }
+
+    .piano-black-key .piano-key-caption,
+    .piano-black-key .piano-key-shortcut {
+      color: inherit;
+    }
+
     .workspace-grid {
       display: grid;
       grid-template-columns: minmax(0, 1.85fr) minmax(300px, 0.75fr);
@@ -1178,6 +1391,25 @@
         grid-template-columns: 1fr;
       }
 
+      .midi-toolbar {
+        align-items: stretch;
+      }
+
+      .midi-control,
+      .midi-velocity-control {
+        min-width: min(180px, 100%);
+      }
+
+      .midi-activity {
+        width: 100%;
+        margin-left: 0;
+        white-space: normal;
+      }
+
+      .midi-keyboard {
+        height: 150px;
+      }
+
       .transport-controls {
         justify-content: flex-start;
       }
@@ -1371,6 +1603,56 @@
         </article>
       </section>
 
+      <section class="panel midi-panel" aria-labelledby="midi-keyboard-heading">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Virtual input</p>
+            <h2 id="midi-keyboard-heading">虚拟 MIDI 键盘</h2>
+            <p>鼠标、触控或 PC 键盘演奏，实时发送到后端输入乐器</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="midi-toolbar">
+            <div class="midi-control">
+              <label for="midi-octave">起始八度</label>
+              <select id="midi-octave">
+                <option value="1">C1</option>
+                <option value="2">C2</option>
+                <option value="3" selected>C3</option>
+                <option value="4">C4</option>
+                <option value="5">C5</option>
+                <option value="6">C6</option>
+              </select>
+            </div>
+            <div class="midi-control">
+              <label for="midi-channel">MIDI 通道</label>
+              <select id="midi-channel"></select>
+            </div>
+            <div class="midi-control midi-velocity-control">
+              <div class="midi-velocity-head">
+                <label for="midi-velocity">力度</label>
+                <output id="midi-velocity-value" for="midi-velocity">100</output>
+              </div>
+              <input id="midi-velocity" type="range" min="1" max="127" step="1" value="100">
+            </div>
+            <div class="midi-activity" id="midi-activity" data-state="idle" role="status" aria-live="polite">
+              等待演奏
+            </div>
+          </div>
+          <p class="midi-hint">
+            鼠标点击或拖动琴键演奏。PC 键盘映射：
+            <kbd>A</kbd> C · <kbd>W</kbd> C# · <kbd>S</kbd> D · <kbd>E</kbd> D# ·
+            <kbd>D</kbd> E · <kbd>F</kbd> F · <kbd>T</kbd> F# · <kbd>G</kbd> G ·
+            <kbd>Y</kbd> G# · <kbd>H</kbd> A · <kbd>U</kbd> A# · <kbd>J</kbd> B ·
+            <kbd>K</kbd> 高音 C
+          </p>
+          <div class="midi-keyboard-shell">
+            <div class="midi-keyboard" id="midi-keyboard" role="group"
+              aria-label="虚拟 MIDI 键盘"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="workspace-grid">
         <article class="panel sequence-panel">
           <div class="panel-header">
@@ -1558,6 +1840,25 @@
         ["record", "录制"],
         ["stop", "停止走带"]
       ];
+      const MIDI_NOTE_NAMES = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+      ];
+      const MIDI_BLACK_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
+      const MIDI_PC_KEYS = Object.freeze({
+        KeyA: 0,
+        KeyW: 1,
+        KeyS: 2,
+        KeyE: 3,
+        KeyD: 4,
+        KeyF: 5,
+        KeyT: 6,
+        KeyG: 7,
+        KeyY: 8,
+        KeyH: 9,
+        KeyU: 10,
+        KeyJ: 11,
+        KeyK: 12
+      });
 
       const state = {
         health: null,
@@ -1574,8 +1875,16 @@
         selectedCell: null,
         cellSaving: false,
         busy: false,
-        loading: false
+        loading: false,
+        midiOctave: 3,
+        midiChannel: 0,
+        midiVelocity: 100
       };
+
+      const activeMidiSources = new Map();
+      const activeMidiNoteCounts = new Map();
+      let midiRequestChain = Promise.resolve();
+      let midiLastErrorAt = 0;
 
       const $ = (selector, root = document) => root.querySelector(selector);
       const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -1615,6 +1924,12 @@
         noteVelocity: $("#note-velocity"),
         saveCellNote: $("#save-cell-note"),
         clearCellNote: $("#clear-cell-note"),
+        midiKeyboard: $("#midi-keyboard"),
+        midiOctave: $("#midi-octave"),
+        midiChannel: $("#midi-channel"),
+        midiVelocity: $("#midi-velocity"),
+        midiVelocityValue: $("#midi-velocity-value"),
+        midiActivity: $("#midi-activity"),
         actionEditor: $("#action-editor"),
         actionResponse: $("#action-response"),
         executeActions: $("#execute-actions"),
@@ -1651,6 +1966,193 @@
       function formatNumber(value, digits = 3) {
         const number = Number(value);
         return Number.isFinite(number) ? number.toFixed(digits) : "0.000";
+      }
+
+      const MIDI_PC_SHORTCUTS = Object.freeze(Object.fromEntries(
+        Object.entries(MIDI_PC_KEYS).map(([code, semitone]) => [semitone, code.slice(3)])
+      ));
+
+      function midiNoteName(note) {
+        const pitch = ((note % 12) + 12) % 12;
+        return `${MIDI_NOTE_NAMES[pitch]}${Math.floor(note / 12) - 1}`;
+      }
+
+      function setMidiActivity(message, mode = "idle") {
+        els.midiActivity.textContent = message;
+        els.midiActivity.dataset.state = mode;
+      }
+
+      function sendMidiEvent(type, note, channel) {
+        const velocity = type === "note_on" ? state.midiVelocity : 0;
+        const label = `${type === "note_on" ? "Note On" : "Note Off"} · ${midiNoteName(note)}`;
+        const payload = {
+          events: [{
+            type,
+            time: -1,
+            channel,
+            note: {
+              number: note,
+              velocity
+            }
+          }]
+        };
+
+        setMidiActivity(`${label} · 排队`, "pending");
+        midiRequestChain = midiRequestChain
+          .then(async () => {
+            await api("/midi/events", { method: "POST", body: payload });
+            setMidiActivity(`${label} · CH ${channel}`, "active");
+          })
+          .catch((error) => {
+            setMidiActivity(`${label} 失败`, "error");
+            const now = Date.now();
+            if (now - midiLastErrorAt > 3000) {
+              midiLastErrorAt = now;
+              showError(`MIDI 发送失败：${describeError(error)}`);
+              toast(describeError(error), "error");
+            }
+          });
+      }
+
+      function renderMidiChannels() {
+        els.midiChannel.innerHTML = Array.from({ length: 16 }, (_, channel) => (
+          `<option value="${channel}">CH ${channel + 1}</option>`
+        )).join("");
+        els.midiChannel.value = String(state.midiChannel);
+      }
+
+      function renderMidiKeyboard() {
+        releaseAllMidiNotes();
+        const baseNote = (state.midiOctave + 1) * 12;
+        const offsets = Array.from({ length: 25 }, (_, offset) => offset);
+        const whiteTotal = offsets.filter((offset) => (
+          !MIDI_BLACK_PITCH_CLASSES.has((baseNote + offset) % 12)
+        )).length;
+        const bars = [];
+        let whiteSeen = 0;
+
+        for (const offset of offsets) {
+          const note = baseNote + offset;
+          const pitch = note % 12;
+          const black = MIDI_BLACK_PITCH_CLASSES.has(pitch);
+          const shortcut = offset <= 12 ? MIDI_PC_SHORTCUTS[offset] || "" : "";
+          const shortcutMarkup = shortcut
+            ? `<span class="piano-key-shortcut">${escapeHTML(shortcut)}</span>`
+            : "";
+          const caption = `<span class="piano-key-caption">${escapeHTML(midiNoteName(note))}</span>`;
+          const classes = [
+            "piano-key",
+            black ? "piano-black-key" : "piano-white-key"
+          ];
+
+          if (black) {
+            const unit = 100 / whiteTotal;
+            const width = unit * 0.62;
+            const left = whiteSeen * unit - width / 2;
+            bars.push(`
+              <button class="${classes.join(" ")}" type="button" tabindex="-1"
+                data-midi-note="${note}"
+                aria-label="${escapeHTML(midiNoteName(note))}，MIDI ${note}"
+                style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%">
+                ${shortcutMarkup}${caption}
+              </button>
+            `);
+            continue;
+          }
+
+          whiteSeen += 1;
+          bars.push(`
+            <button class="${classes.join(" ")}" type="button" tabindex="-1"
+              data-midi-note="${note}"
+              aria-label="${escapeHTML(midiNoteName(note))}，MIDI ${note}">
+              ${shortcutMarkup}${caption}
+            </button>
+          `);
+        }
+        els.midiKeyboard.innerHTML = bars.join("");
+        renderMidiActiveNotes();
+      }
+
+      function renderMidiActiveNotes() {
+        const activeNotes = new Set(
+          Array.from(activeMidiSources.values(), (source) => source.note)
+        );
+        $$("[data-midi-note]", els.midiKeyboard).forEach((key) => {
+          key.classList.toggle("is-active", activeNotes.has(Number(key.dataset.midiNote)));
+        });
+      }
+
+      function startMidiNote(note, source) {
+        if (!Number.isInteger(note) || note < 0 || note > 127 || activeMidiSources.has(source)) {
+          return;
+        }
+        const channel = state.midiChannel;
+        const countKey = `${channel}:${note}`;
+        const count = activeMidiNoteCounts.get(countKey) || 0;
+        activeMidiSources.set(source, { note, channel });
+        activeMidiNoteCounts.set(countKey, count + 1);
+        if (count === 0) sendMidiEvent("note_on", note, channel);
+        renderMidiActiveNotes();
+      }
+
+      function stopMidiNote(source) {
+        const active = activeMidiSources.get(source);
+        if (!active) return;
+        activeMidiSources.delete(source);
+        const countKey = `${active.channel}:${active.note}`;
+        const count = Math.max(0, (activeMidiNoteCounts.get(countKey) || 0) - 1);
+        if (count === 0) {
+          activeMidiNoteCounts.delete(countKey);
+          sendMidiEvent("note_off", active.note, active.channel);
+        } else {
+          activeMidiNoteCounts.set(countKey, count);
+        }
+        renderMidiActiveNotes();
+      }
+
+      function releaseAllMidiNotes() {
+        for (const source of Array.from(activeMidiSources.keys())) {
+          stopMidiNote(source);
+        }
+      }
+
+      function midiPointerSource(pointerId) {
+        return `pointer:${pointerId}`;
+      }
+
+      function startMidiPointer(event) {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        const key = event.target.closest?.("[data-midi-note]");
+        if (!key || !els.midiKeyboard.contains(key)) return;
+        event.preventDefault();
+        try {
+          els.midiKeyboard.setPointerCapture(event.pointerId);
+        } catch {
+          // Pointer capture is best-effort; the pointerup handler still releases the note.
+        }
+        stopMidiNote(midiPointerSource(event.pointerId));
+        startMidiNote(Number(key.dataset.midiNote), midiPointerSource(event.pointerId));
+      }
+
+      function moveMidiPointer(event) {
+        const source = midiPointerSource(event.pointerId);
+        const current = activeMidiSources.get(source);
+        if (!current) return;
+
+        const hit = document.elementFromPoint(event.clientX, event.clientY);
+        const key = hit?.closest?.("[data-midi-note]");
+        if (!key || !els.midiKeyboard.contains(key)) {
+          stopMidiNote(source);
+          return;
+        }
+        const note = Number(key.dataset.midiNote);
+        if (note === current.note) return;
+        stopMidiNote(source);
+        startMidiNote(note, source);
+      }
+
+      function stopMidiPointer(event) {
+        stopMidiNote(midiPointerSource(event.pointerId));
       }
 
       function setConnection(mode, label) {
@@ -2397,6 +2899,24 @@
         $("#fill-status-action").addEventListener("click", fillStatusAction);
         $("#fill-start-action").addEventListener("click", fillStartAction);
 
+        els.midiOctave.addEventListener("change", () => {
+          state.midiOctave = Number(els.midiOctave.value) || 3;
+          renderMidiKeyboard();
+        });
+        els.midiChannel.addEventListener("change", () => {
+          state.midiChannel = Number(els.midiChannel.value) || 0;
+          setMidiActivity(`输入通道切换为 CH ${state.midiChannel + 1}`, "idle");
+        });
+        els.midiVelocity.addEventListener("input", () => {
+          state.midiVelocity = Math.max(1, Math.min(127, Number(els.midiVelocity.value) || 1));
+          els.midiVelocityValue.textContent = String(state.midiVelocity);
+        });
+        els.midiKeyboard.addEventListener("pointerdown", startMidiPointer);
+        els.midiKeyboard.addEventListener("pointermove", moveMidiPointer);
+        els.midiKeyboard.addEventListener("pointerup", stopMidiPointer);
+        els.midiKeyboard.addEventListener("pointercancel", stopMidiPointer);
+        els.midiKeyboard.addEventListener("lostpointercapture", stopMidiPointer);
+
         document.addEventListener("click", (event) => {
           const commandButton = event.target.closest("[data-command]");
           if (commandButton) {
@@ -2424,18 +2944,46 @@
           const editing = target instanceof HTMLInputElement ||
             target instanceof HTMLTextAreaElement ||
             target instanceof HTMLSelectElement;
-          if (editing || event.repeat || event.code !== "Space") return;
+          if (editing || event.ctrlKey || event.metaKey || event.altKey) return;
+
+          const semitone = MIDI_PC_KEYS[event.code];
+          if (semitone !== undefined) {
+            event.preventDefault();
+            if (!event.repeat) {
+              const note = (state.midiOctave + 1) * 12 + semitone;
+              startMidiNote(note, `keyboard:${event.code}`);
+            }
+            return;
+          }
+
+          if (event.repeat || event.code !== "Space") return;
           event.preventDefault();
           runCommand("pause-resume");
         });
 
+        document.addEventListener("keyup", (event) => {
+          const source = `keyboard:${event.code}`;
+          if (!activeMidiSources.has(source)) return;
+          event.preventDefault();
+          stopMidiNote(source);
+        });
+
+        window.addEventListener("blur", releaseAllMidiNotes);
+
         document.addEventListener("visibilitychange", () => {
-          if (!document.hidden) refreshLive();
+          if (document.hidden) {
+            releaseAllMidiNotes();
+          } else {
+            refreshLive();
+          }
         });
       }
 
       function init() {
         wireEvents();
+        renderMidiChannels();
+        els.midiVelocityValue.textContent = String(state.midiVelocity);
+        renderMidiKeyboard();
         loadDashboard();
         window.setInterval(refreshLive, 4000);
       }
